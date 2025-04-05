@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 33
     defaultConfig {
-        applicationId "com.web2apk.bankstatement"
+        applicationId "com.web2apk.tempo"
         minSdkVersion 21
         targetSdkVersion 33
         versionCode 1

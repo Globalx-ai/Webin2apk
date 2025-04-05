@@ -8,7 +8,7 @@ const Documentation = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Documentation</h1>
         <p className="text-gray-500 mt-1">
-          Learn how to use Web2APK to convert websites to Android apps
+          Learn how to use App Bundle Maker to convert websites to Android apps
         </p>
       </div>
 
@@ -23,7 +23,7 @@ const Documentation = () => {
         <TabsContent value="getting-started">
           <Card>
             <CardHeader>
-              <CardTitle>Getting Started with Web2APK</CardTitle>
+              <CardTitle>Getting Started with App Bundle Maker</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
@@ -118,7 +118,7 @@ const Documentation = () => {
                   <li>
                     <strong>Prepare Required Assets</strong>
                     <ul className="list-disc pl-6 mt-1 space-y-1">
-                      <li>AAB file (download from Web2APK)</li>
+                      <li>AAB file (download from App Bundle Maker)</li>
                       <li>High-resolution icon (512x512 PNG)</li>
                       <li>Feature graphic (1024x500 PNG)</li>
                       <li>Screenshots (minimum 2) for phone, 7-inch tablet, and 10-inch tablet</li>
@@ -165,7 +165,7 @@ const Documentation = () => {
                   <li>
                     <strong>Prepare Required Assets</strong>
                     <ul className="list-disc pl-6 mt-1 space-y-1">
-                      <li>APK file (download from Web2APK)</li>
+                      <li>APK file (download from App Bundle Maker)</li>
                       <li>App icon (512x512 PNG)</li>
                       <li>Screenshots (minimum 3) for phone and tablet</li>
                       <li>Promotional image (1280x720 JPG or PNG)</li>
@@ -182,7 +182,7 @@ const Documentation = () => {
                   </li>
                   <li>
                     <strong>Upload APK</strong>
-                    <p className="mt-1">Upload your APK file from Web2APK.</p>
+                    <p className="mt-1">Upload your APK file from App Bundle Maker.</p>
                   </li>
                   <li>
                     <strong>Content Rating</strong>
@@ -216,7 +216,7 @@ const Documentation = () => {
                   <li>
                     <strong>Prepare Required Assets</strong>
                     <ul className="list-disc pl-6 mt-1 space-y-1">
-                      <li>APK file (download from Web2APK)</li>
+                      <li>APK file (download from App Bundle Maker)</li>
                       <li>App icon (512x512 PNG)</li>
                       <li>Screenshots (minimum 2) for each supported device type</li>
                       <li>Promotional banner (1280x720 PNG)</li>
@@ -262,7 +262,7 @@ const Documentation = () => {
                   <li>
                     <strong>Prepare Required Assets</strong>
                     <ul className="list-disc pl-6 mt-1 space-y-1">
-                      <li>APK file (download from Web2APK)</li>
+                      <li>APK file (download from App Bundle Maker)</li>
                       <li>App icon (1024x1024 PNG)</li>
                       <li>Screenshots (minimum 2) for phone and tablet</li>
                       <li>App introduction file/video (optional)</li>
@@ -295,7 +295,7 @@ const Documentation = () => {
               <div>
                 <h3 className="text-lg font-medium mb-2">Other App Stores</h3>
                 <p className="text-gray-600 mb-3">
-                  Web2APK also supports submission to these additional stores:
+                  App Bundle Maker also supports submission to these additional stores:
                 </p>
                 <ul className="list-disc pl-6 space-y-2 text-gray-600">
                   <li>
@@ -341,7 +341,7 @@ const Documentation = () => {
               </div>
               
               <div>
-                <h3 className="text-lg font-medium mb-2">Do I need coding skills to use Web2APK?</h3>
+                <h3 className="text-lg font-medium mb-2">Do I need coding skills to use App Bundle Maker?</h3>
                 <p className="text-gray-600">
                   No coding skills are required. Our intuitive interface guides you through the entire process of creating an Android app from your website.
                 </p>
@@ -357,7 +357,7 @@ const Documentation = () => {
               <div>
                 <h3 className="text-lg font-medium mb-2">Can I update my app after publishing?</h3>
                 <p className="text-gray-600">
-                  Yes. To update your app, you'll need to create a new build with Web2APK using the same package name and signing key, then submit the update to the app stores.
+                  Yes. To update your app, you'll need to create a new build with App Bundle Maker using the same package name and signing key, then submit the update to the app stores.
                 </p>
               </div>
               
@@ -371,7 +371,7 @@ const Documentation = () => {
               <div>
                 <h3 className="text-lg font-medium mb-2">Do you support iOS apps?</h3>
                 <p className="text-gray-600">
-                  Currently, Web2APK supports Android app creation only. iOS support may be added in future versions.
+                  Currently, App Bundle Maker supports Android app creation only. iOS support may be added in future versions.
                 </p>
               </div>
             </CardContent>

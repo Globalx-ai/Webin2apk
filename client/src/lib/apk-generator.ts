@@ -120,7 +120,7 @@ export function suggestPackageName(appName: string): string {
   const formattedName = cleanName.toLowerCase().replace(/\s+/g, "_");
   
   // Create a basic package name
-  return `com.web2apk.${formattedName}`;
+  return `com.appbundlemaker.${formattedName}`;
 }
 
 /**

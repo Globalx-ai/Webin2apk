@@ -49,7 +49,7 @@ const Dashboard = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-gray-500 mt-1">
-            Welcome to Web2APK - Convert websites to Android apps
+            Welcome to App Bundle Maker - Convert websites to Android apps
           </p>
         </div>
         <Link href="/new-conversion">
