@@ -4,7 +4,7 @@ import path from 'path';
 interface ManifestConfig {
   appName: string;
   packageName: string;
-  url: string;
+  url: string; // We'll handle null/undefined values when using this
   orientation: string;
   permissions: string[];
 }

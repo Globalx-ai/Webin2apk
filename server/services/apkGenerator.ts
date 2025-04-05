@@ -12,7 +12,7 @@ interface APKGenerationConfig {
   projectId: number;
   appName: string;
   packageName: string;
-  sourceUrl: string;
+  sourceUrl: string | null | undefined; // Can be undefined for HTML/PDF sources
   iconPath?: string;
   manifestPath: string;
   keystorePath: string;
@@ -102,9 +102,11 @@ async function createAndroidProjectStructure(
   projectDir: string, 
   appName: string, 
   packageName: string,
-  sourceUrl: string,
+  sourceUrl: string | null | undefined,
   appConfig: AppConfig
 ): Promise<void> {
+  // Default to about:blank if URL is not provided
+  const url = sourceUrl || 'about:blank';
   // Create the standard Android project folder structure
   const mainDir = path.join(projectDir, 'app', 'src', 'main');
   const javaDir = path.join(mainDir, 'java', ...packageName.split('.'));
@@ -128,7 +130,7 @@ async function createAndroidProjectStructure(
   const stringsContent = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">${appName}</string>
-    <string name="app_url">${sourceUrl}</string>
+    <string name="app_url">${url}</string>
 </resources>`;
   
   await fs.promises.writeFile(
@@ -182,7 +184,9 @@ dependencies {
 /**
  * Generates the MainActivity.java content
  */
-function generateMainActivityFile(packageName: string, sourceUrl: string, appConfig: AppConfig): string {
+function generateMainActivityFile(packageName: string, sourceUrl: string | null | undefined, appConfig: AppConfig): string {
+  // Default to about:blank if URL is not provided
+  const url = sourceUrl || 'about:blank';
   return `package ${packageName};
 
 import android.os.Bundle;
@@ -210,7 +214,7 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setCacheMode(${appConfig.enableCache ? 'WebSettings.LOAD_DEFAULT' : 'WebSettings.LOAD_NO_CACHE'});
         
         webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("${sourceUrl}");
+        webView.loadUrl("${url}");
     }
 
     @Override

@@ -533,7 +533,6 @@ public class MainActivity extends AppCompatActivity {
                         <Checkbox
                           id="advanced-options"
                           checked={isAdvancedOpen}
-                          onCheckedChange={(checked) => setIsAdvancedOpen(!!checked)}
                         />
                         <label htmlFor="advanced-options" className="ml-2 block text-sm text-gray-600">
                           Show advanced options

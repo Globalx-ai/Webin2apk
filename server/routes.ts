@@ -297,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const manifestPath = await generateAndroidManifest({
         appName: project.name,
         packageName: project.packageName,
-        url: project.sourceUrl,
+        url: project.sourceUrl || 'about:blank', // Provide default URL if not available
         orientation: appConfig.orientation,
         permissions: appConfig.permissions || ["INTERNET"],
       });
