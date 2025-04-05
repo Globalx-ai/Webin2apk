@@ -97,10 +97,22 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
       return;
     }
     
+    // Make sure URL has http:// or https:// prefix
+    let validUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      validUrl = 'https://' + url;
+      form.setValue("websiteUrl", validUrl);
+    }
+    
     setIsValidatingUrl(true);
     
     try {
-      const response = await apiRequest("POST", "/api/validate-url", { websiteUrl: url });
+      const response = await apiRequest("POST", "/api/validate-url", { websiteUrl: validUrl });
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      
       const result = await response.json();
       
       toast({
@@ -112,7 +124,7 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
       // If URL is valid and we don't have an app name yet, generate one from the domain
       if (result.valid && !form.getValues("appName")) {
         try {
-          const domain = new URL(url).hostname.replace("www.", "");
+          const domain = new URL(validUrl).hostname.replace("www.", "");
           const appName = domain.split(".")[0].charAt(0).toUpperCase() + domain.split(".")[0].slice(1);
           form.setValue("appName", appName, { shouldValidate: true });
           
@@ -120,10 +132,11 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
           const packageName = suggestPackageName(appName);
           form.setValue("packageName", packageName, { shouldValidate: true });
         } catch (error) {
-          // Ignore any errors when trying to create a default app name
+          console.error("Error generating app name:", error);
         }
       }
     } catch (error) {
+      console.error("Error validating URL:", error);
       toast({
         title: "Error",
         description: "Failed to validate URL. Please try again.",

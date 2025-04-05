@@ -5,6 +5,11 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface BuildFormProps {
   projectId: number;
@@ -13,12 +18,113 @@ interface BuildFormProps {
 
 type BuildStatus = "idle" | "building" | "completed" | "failed";
 
+interface FeatureOption {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  isDefault?: boolean;
+  appStoreCompat?: string[];
+}
+
+// List of supported app stores
+const APP_STORES = [
+  { id: "google_play", name: "Google Play Store", icon: "store" },
+  { id: "amazon", name: "Amazon App Store", icon: "shopping_cart" },
+  { id: "samsung", name: "Samsung Galaxy Store", icon: "smartphone" },
+  { id: "huawei", name: "Huawei AppGallery", icon: "apps" },
+  { id: "xiaomi", name: "Xiaomi GetApps", icon: "apps" },
+  { id: "oppo", name: "OPPO App Market", icon: "apps" },
+  { id: "vivo", name: "Vivo App Store", icon: "apps" },
+  { id: "fdroid", name: "F-Droid", icon: "android" },
+  { id: "independent", name: "Direct Distribution", icon: "language" },
+];
+
+// App features list
+const FEATURES: FeatureOption[] = [
+  {
+    id: "offline_support",
+    name: "Offline Support",
+    description: "Enable the app to work without an internet connection by caching content locally",
+    icon: "offline_bolt",
+    isDefault: false,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo", "fdroid", "independent"]
+  },
+  {
+    id: "push_notifications",
+    name: "Push Notifications",
+    description: "Allow your app to receive notifications even when it's not running",
+    icon: "notifications_active",
+    isDefault: false,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo"]
+  },
+  {
+    id: "app_sharing",
+    name: "App Sharing",
+    description: "Enable users to share content from your app to other apps",
+    icon: "share",
+    isDefault: true,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo", "fdroid", "independent"]
+  },
+  {
+    id: "location_services",
+    name: "Location Services",
+    description: "Access device's location data for geo-specific features",
+    icon: "location_on",
+    isDefault: false,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo", "fdroid", "independent"]
+  },
+  {
+    id: "camera_access",
+    name: "Camera Access",
+    description: "Allow the app to use the device's camera for photos/videos",
+    icon: "camera_alt",
+    isDefault: false,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo", "fdroid", "independent"]
+  },
+  {
+    id: "file_downloads",
+    name: "File Downloads",
+    description: "Enable users to download files to their device",
+    icon: "download",
+    isDefault: true,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo", "fdroid", "independent"]
+  },
+  {
+    id: "dark_mode",
+    name: "Dark Mode",
+    description: "Provide a dark color scheme for your app",
+    icon: "dark_mode",
+    isDefault: false,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo", "fdroid", "independent"]
+  },
+  {
+    id: "auto_translation",
+    name: "Auto Translation",
+    description: "Automatically translate app content to the user's device language",
+    icon: "translate",
+    isDefault: false,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo"]
+  },
+  {
+    id: "analytics",
+    name: "Analytics Integration",
+    description: "Track app usage and behavior to improve user experience",
+    icon: "insights",
+    isDefault: false,
+    appStoreCompat: ["google_play", "amazon", "samsung", "huawei", "xiaomi", "oppo", "vivo"]
+  }
+];
+
 const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
   const { toast } = useToast();
   const [buildStatus, setBuildStatus] = useState<BuildStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [apkUrl, setApkUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<string>("features");
+  const [targetStores, setTargetStores] = useState<string[]>(["google_play", "amazon"]);
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>(FEATURES.filter(f => f.isDefault).map(f => f.id));
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -41,13 +147,57 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
     };
   }, [buildStatus]);
 
+  // Toggle feature selection
+  const toggleFeature = (featureId: string) => {
+    setSelectedFeatures(prev => 
+      prev.includes(featureId) 
+        ? prev.filter(id => id !== featureId) 
+        : [...prev, featureId]
+    );
+  };
+  
+  // Toggle app store selection
+  const toggleStore = (storeId: string) => {
+    setTargetStores(prev => 
+      prev.includes(storeId) 
+        ? prev.filter(id => id !== storeId) 
+        : [...prev, storeId]
+    );
+    
+    // Update features based on compatibility with selected stores
+    if (!targetStores.includes(storeId)) {
+      // Store was added, no need to check compatibility
+      return;
+    }
+    
+    // Store was removed, need to check if any features are incompatible with remaining stores
+    const remainingStores = targetStores.filter(id => id !== storeId);
+    if (remainingStores.length === 0) {
+      return; // Don't disable features if no stores are selected
+    }
+    
+    // Filter out features that aren't compatible with any of the remaining stores
+    setSelectedFeatures(prev => {
+      return prev.filter(featureId => {
+        const feature = FEATURES.find(f => f.id === featureId);
+        if (!feature || !feature.appStoreCompat) return true; // Keep if no compat info
+        return feature.appStoreCompat.some(id => remainingStores.includes(id));
+      });
+    });
+  };
+  
   const startBuild = async () => {
     setBuildStatus("building");
     setProgress(0);
     setError(null);
     
     try {
-      const response = await apiRequest("POST", `/api/projects/${projectId}/build`, undefined);
+      // Include selected features and target stores in the build request
+      const response = await apiRequest("POST", `/api/projects/${projectId}/build`, {
+        features: selectedFeatures,
+        targetStores: targetStores
+      });
+      
       const data = await response.json();
       
       // Set download URL
@@ -83,22 +233,117 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
         <p className="text-gray-600 mb-6">Generate the Android APK file for your app</p>
         
         {buildStatus === "idle" && (
-          <div className="text-center py-6">
-            <div className="mb-6">
-              <span className="material-icons text-6xl text-blue-600">android</span>
-            </div>
-            <h4 className="text-lg font-medium mb-2">Ready to Build</h4>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              Your app is configured and ready to be built. The build process will package your website into an Android APK file.
-            </p>
-            <Button 
-              onClick={startBuild}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8"
-              size="lg"
+          <div>
+            <Tabs 
+              defaultValue="features" 
+              value={selectedTab} 
+              onValueChange={setSelectedTab}
+              className="mb-6"
             >
-              <span className="material-icons mr-2">build</span>
-              Start Build
-            </Button>
+              <TabsList className="grid grid-cols-2 mb-6 w-full max-w-md mx-auto">
+                <TabsTrigger value="features">
+                  <span className="material-icons mr-2 text-sm">extension</span>
+                  App Features
+                </TabsTrigger>
+                <TabsTrigger value="stores">
+                  <span className="material-icons mr-2 text-sm">store</span>
+                  App Stores
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="features">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {FEATURES.map(feature => (
+                    <Card 
+                      key={feature.id} 
+                      className={selectedFeatures.includes(feature.id) ? 
+                        "border-2 border-blue-500 shadow-md" : 
+                        "hover:border-gray-300"
+                      }
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center">
+                          <div className="mr-3 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="material-icons text-blue-600">{feature.icon}</span>
+                          </div>
+                          <CardTitle className="text-base font-medium">{feature.name}</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <CardDescription className="text-xs">{feature.description}</CardDescription>
+                        <div className="pt-3 flex justify-between items-center">
+                          <div className="text-xs">
+                            {feature.isDefault && (
+                              <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                Recommended
+                              </Badge>
+                            )}
+                          </div>
+                          <div>
+                            <Checkbox 
+                              id={`feature-${feature.id}`}
+                              checked={selectedFeatures.includes(feature.id)}
+                              onCheckedChange={() => toggleFeature(feature.id)}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="stores">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {APP_STORES.map(store => (
+                    <Card 
+                      key={store.id} 
+                      className={targetStores.includes(store.id) ? 
+                        "border-2 border-blue-500 shadow-md" : 
+                        "hover:border-gray-300"
+                      }
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center">
+                          <div className="mr-3 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="material-icons text-blue-600">{store.icon}</span>
+                          </div>
+                          <CardTitle className="text-base font-medium">{store.name}</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-2">
+                        <div className="flex justify-end">
+                          <Checkbox 
+                            id={`store-${store.id}`}
+                            checked={targetStores.includes(store.id)}
+                            onCheckedChange={() => toggleStore(store.id)}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+            
+            <div className="text-center py-6">
+              <div className="mb-6">
+                <span className="material-icons text-6xl text-blue-600">android</span>
+              </div>
+              <h4 className="text-lg font-medium mb-2">Ready to Build</h4>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Your app is configured and ready to be built with {selectedFeatures.length} features
+                for {targetStores.length} app store{targetStores.length !== 1 ? 's' : ''}.
+              </p>
+              <Button 
+                onClick={startBuild}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8"
+                size="lg"
+              >
+                <span className="material-icons mr-2">build</span>
+                Start Build
+              </Button>
+            </div>
           </div>
         )}
         

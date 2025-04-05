@@ -9,14 +9,12 @@ interface AppPreviewProps {
 const AppPreview = ({ appName, url, packageName }: AppPreviewProps) => {
   const [time, setTime] = useState("9:41");
   
+  // Use static time to avoid potential re-render issues
   useEffect(() => {
-    // Update time every minute
-    const interval = setInterval(() => {
-      const now = new Date();
-      setTime(`${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`);
-    }, 60000);
-    
-    return () => clearInterval(interval);
+    // Set time once when component mounts
+    const now = new Date();
+    setTime(`${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`);
+    // No interval to avoid potential update loops
   }, []);
 
   return (
