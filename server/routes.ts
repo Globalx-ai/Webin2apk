@@ -284,7 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         iconPath: generatedIcons.iconSetPath
       });
       
-      console.log("Project updated with icon path:", updatedProject.iconPath);
+      console.log("Project updated with icon path:", updatedProject?.iconPath || "none");
       
       res.json({
         message: "Icon uploaded and processed successfully",

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 interface AppPreviewProps {
   appName: string;
-  url: string;
+  url: string | undefined;
   packageName: string;
 }
 

@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
 import { websiteFormSchema } from "@shared/schema";
 import { suggestPackageName } from "@/lib/apk-generator";
+import AppPreview from "./AppPreview";
 
 type FormValues = z.infer<typeof websiteFormSchema>;
 
@@ -377,272 +378,21 @@ public class MainActivity extends AppCompatActivity {
                   </Card>
                 </TabsContent>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="appName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>App Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="My App" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          This will appear on the device home screen
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="packageName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Package Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="com.example.myapp" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Unique identifier (e.g., com.yourcompany.appname)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>App Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="A brief description of your app..." 
-                          {...field} 
-                          rows={3}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Will be used in app store listings
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Custom Code Section */}
-                <FormField
-                  control={form.control}
-                  name="includeCustomCode"
-                  render={({ field }) => (
-                    <FormItem className="flex items-start space-x-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          id="include-code"
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel htmlFor="include-code" className="text-sm font-medium">
-                          Include Custom Code
-                        </FormLabel>
-                        <FormDescription>
-                          Add custom Android code to enhance your app functionality
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                {form.watch("includeCustomCode") && (
-                  <div className="p-4 border rounded-lg space-y-4">
-                    <div className="flex justify-between items-center">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
-                        name="customCodeLanguage"
-                        render={({ field }) => (
-                          <FormItem className="w-1/3">
-                            <FormLabel>Language</FormLabel>
-                            <Select 
-                              value={field.value} 
-                              onValueChange={field.onChange}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select language" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="java">Java</SelectItem>
-                                <SelectItem value="kotlin">Kotlin</SelectItem>
-                                <SelectItem value="javascript">JavaScript</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                        )}
-                      />
-
-                      <Button
-                        type="button"
-                        className="bg-purple-600 hover:bg-purple-700 text-white"
-                        onClick={handleGenerateCode}
-                        disabled={isProcessingCode}
-                      >
-                        <span className="material-icons mr-2 text-sm">psychology</span>
-                        {isProcessingCode ? "Generating..." : "Generate with AI"}
-                      </Button>
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="customCodeContent"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Custom Code</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="// Enter your custom code here or generate with AI" 
-                              {...field} 
-                              rows={12}
-                              className="font-mono text-sm"
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            This code will be included in your Android app. AI-powered verification will check for issues.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                <div className="flex justify-between items-start pt-4">
-                  <div className="w-full">
-                    <div 
-                      className="flex items-center cursor-pointer mb-4" 
-                      onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-                    >
-                      <Checkbox
-                        id="advanced-options"
-                        checked={isAdvancedOpen}
-                        onCheckedChange={() => {}}
-                      />
-                      <label htmlFor="advanced-options" className="ml-2 block text-sm text-gray-600">
-                        Show advanced options
-                      </label>
-                    </div>
-                    
-                    {isAdvancedOpen && (
-                    <div className="mt-6 space-y-6 border-t pt-6">
-                      <h4 className="text-lg font-medium mb-4">Advanced Options</h4>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">WebView Settings</label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="enableJavaScript"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">Enable JavaScript</FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="enableDomStorage"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">Enable DOM Storage</FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="enableZoom"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">Enable Zoom Controls</FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="enableCache"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">Enable Cache</FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </div>
-                      
-                      <FormField
-                        control={form.control}
-                        name="orientation"
+                        name="appName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Orientation</FormLabel>
+                            <FormLabel>App Name</FormLabel>
                             <FormControl>
-                              <RadioGroup 
-                                value={field.value} 
-                                onValueChange={field.onChange}
-                                className="flex space-x-4"
-                              >
-                                <FormItem className="flex items-center space-x-2">
-                                  <FormControl>
-                                    <RadioGroupItem value="auto" />
-                                  </FormControl>
-                                  <FormLabel className="text-sm text-gray-600">Auto</FormLabel>
-                                </FormItem>
-                                <FormItem className="flex items-center space-x-2">
-                                  <FormControl>
-                                    <RadioGroupItem value="portrait" />
-                                  </FormControl>
-                                  <FormLabel className="text-sm text-gray-600">Portrait</FormLabel>
-                                </FormItem>
-                                <FormItem className="flex items-center space-x-2">
-                                  <FormControl>
-                                    <RadioGroupItem value="landscape" />
-                                  </FormControl>
-                                  <FormLabel className="text-sm text-gray-600">Landscape</FormLabel>
-                                </FormItem>
-                              </RadioGroup>
+                              <Input placeholder="My App" {...field} />
                             </FormControl>
+                            <FormDescription>
+                              This will appear on the device home screen
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -650,37 +400,303 @@ public class MainActivity extends AppCompatActivity {
                       
                       <FormField
                         control={form.control}
-                        name="offlineMode"
+                        name="packageName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Offline Support</FormLabel>
-                            <Select 
-                              value={field.value} 
-                              onValueChange={field.onChange}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select offline mode" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                <SelectItem value="cache">Basic Cache</SelectItem>
-                                <SelectItem value="pwa">Progressive Web App (PWA)</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <FormLabel>Package Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="com.example.myapp" {...field} />
+                            </FormControl>
                             <FormDescription>
-                              Define how the app should behave without internet connection
+                              Unique identifier (e.g., com.yourcompany.appname)
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
-                    )}
-                  </div>
+                    
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>App Description</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="A brief description of your app..." 
+                              {...field} 
+                              rows={3}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Will be used in app store listings
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
+                    {/* Custom Code Section */}
+                    <FormField
+                      control={form.control}
+                      name="includeCustomCode"
+                      render={({ field }) => (
+                        <FormItem className="flex items-start space-x-2">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              id="include-code"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel htmlFor="include-code" className="text-sm font-medium">
+                              Include Custom Code
+                            </FormLabel>
+                            <FormDescription>
+                              Add custom Android code to enhance your app functionality
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {form.watch("includeCustomCode") && (
+                      <div className="p-4 border rounded-lg space-y-4">
+                        <div className="flex justify-between items-center">
+                          <FormField
+                            control={form.control}
+                            name="customCodeLanguage"
+                            render={({ field }) => (
+                              <FormItem className="w-1/3">
+                                <FormLabel>Language</FormLabel>
+                                <Select 
+                                  value={field.value} 
+                                  onValueChange={field.onChange}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select language" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="java">Java</SelectItem>
+                                    <SelectItem value="kotlin">Kotlin</SelectItem>
+                                    <SelectItem value="javascript">JavaScript</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormItem>
+                            )}
+                          />
+
+                          <Button
+                            type="button"
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            onClick={handleGenerateCode}
+                            disabled={isProcessingCode}
+                          >
+                            <span className="material-icons mr-2 text-sm">psychology</span>
+                            {isProcessingCode ? "Generating..." : "Generate with AI"}
+                          </Button>
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="customCodeContent"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Custom Code</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="// Enter your custom code here or generate with AI" 
+                                  {...field} 
+                                  rows={12}
+                                  className="font-mono text-sm"
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                This code will be included in your Android app. AI-powered verification will check for issues.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-start pt-4">
+                      <div className="w-full">
+                        <div 
+                          className="flex items-center cursor-pointer mb-4" 
+                          onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+                        >
+                          <Checkbox
+                            id="advanced-options"
+                            checked={isAdvancedOpen}
+                            onCheckedChange={() => {}}
+                          />
+                          <label htmlFor="advanced-options" className="ml-2 block text-sm text-gray-600">
+                            Show advanced options
+                          </label>
+                        </div>
+                        
+                        {isAdvancedOpen && (
+                        <div className="mt-6 space-y-6 border-t pt-6">
+                          <h4 className="text-lg font-medium mb-4">Advanced Options</h4>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">WebView Settings</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField
+                                control={form.control}
+                                name="enableJavaScript"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center space-x-2">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm text-gray-600">Enable JavaScript</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="enableDomStorage"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center space-x-2">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm text-gray-600">Enable DOM Storage</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="enableZoom"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center space-x-2">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm text-gray-600">Enable Zoom Controls</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="enableCache"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center space-x-2">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm text-gray-600">Enable Cache</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                          
+                          <FormField
+                            control={form.control}
+                            name="orientation"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Orientation</FormLabel>
+                                <FormControl>
+                                  <RadioGroup 
+                                    value={field.value} 
+                                    onValueChange={field.onChange}
+                                    className="flex space-x-4"
+                                  >
+                                    <FormItem className="flex items-center space-x-2">
+                                      <FormControl>
+                                        <RadioGroupItem value="auto" />
+                                      </FormControl>
+                                      <FormLabel className="text-sm text-gray-600">Auto</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2">
+                                      <FormControl>
+                                        <RadioGroupItem value="portrait" />
+                                      </FormControl>
+                                      <FormLabel className="text-sm text-gray-600">Portrait</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2">
+                                      <FormControl>
+                                        <RadioGroupItem value="landscape" />
+                                      </FormControl>
+                                      <FormLabel className="text-sm text-gray-600">Landscape</FormLabel>
+                                    </FormItem>
+                                  </RadioGroup>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="offlineMode"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Offline Support</FormLabel>
+                                <Select 
+                                  value={field.value} 
+                                  onValueChange={field.onChange}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select offline mode" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    <SelectItem value="cache">Basic Cache</SelectItem>
+                                    <SelectItem value="pwa">Progressive Web App (PWA)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  Define how the app should behave without internet connection
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* App Preview Column */}
+                  <div className="lg:col-span-1">
+                    <AppPreview 
+                      appName={form.watch("appName") || "My App"} 
+                      url={form.watch("websiteUrl") || ""} 
+                      packageName={form.watch("packageName") || "com.example.myapp"}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-6">
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
                     Continue
                     <span className="material-icons ml-1">arrow_forward</span>
                   </Button>
