@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { memo } from "react";
 
 interface AppPreviewProps {
   appName: string;
@@ -6,17 +6,11 @@ interface AppPreviewProps {
   packageName: string;
 }
 
-const AppPreview = ({ appName, url, packageName }: AppPreviewProps) => {
-  const [time, setTime] = useState("9:41");
-  
-  // Use static time to avoid potential re-render issues
-  useEffect(() => {
-    // Set time once when component mounts
-    const now = new Date();
-    setTime(`${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`);
-    // No interval to avoid potential update loops
-  }, []);
+// Use a static time instead of a dynamic one to improve performance
+const staticTime = "9:41"; // Apple's marketing time
 
+// Using memo to prevent excessive re-renders
+const AppPreview = memo(({ appName, url, packageName }: AppPreviewProps) => {
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h3 className="text-xl font-semibold mb-4">Real-time Preview</h3>
@@ -27,7 +21,7 @@ const AppPreview = ({ appName, url, packageName }: AppPreviewProps) => {
         <div className="border-8 border-gray-800 rounded-3xl relative bg-white" style={{ width: "280px", height: "560px" }}>
           {/* Status Bar */}
           <div className="bg-gray-800 w-full p-2 flex justify-between items-center text-white text-xs">
-            <div>{time}</div>
+            <div>{staticTime}</div>
             <div className="flex space-x-1">
               <span className="material-icons text-sm">signal_cellular_alt</span>
               <span className="material-icons text-sm">wifi</span>
@@ -75,6 +69,6 @@ const AppPreview = ({ appName, url, packageName }: AppPreviewProps) => {
       </div>
     </div>
   );
-};
+});
 
 export default AppPreview;
