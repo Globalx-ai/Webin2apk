@@ -80,10 +80,27 @@ const CustomizeForm = ({ projectId, onNext, onBack }: CustomizeFormProps) => {
 
   const uploadIcon = async (formData: FormData) => {
     try {
-      const response = await apiRequest("POST", `/api/projects/${projectId}/icon`, undefined);
-      return await response.json();
+      console.log("Starting icon upload for project:", projectId);
+      
+      // Use fetch directly for FormData upload
+      const response = await fetch(`/api/projects/${projectId}/icon`, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header, let the browser set it correctly with the boundary
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server response:", response.status, errorText);
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log("Upload successful:", result);
+      return result;
     } catch (error) {
-      throw new Error("Failed to upload icon");
+      console.error("Icon upload error:", error);
+      throw new Error(`Failed to upload icon: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

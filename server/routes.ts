@@ -235,6 +235,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload app icon
   app.post("/api/projects/:id/icon", upload.single("icon"), async (req: Request, res: Response) => {
     try {
+      console.log("Icon upload request received");
+      
+      // Debug request information
+      console.log("Request body:", req.body);
+      console.log("Request file:", req.file);
+      console.log("Request params:", req.params);
+      
       const projectId = parseInt(req.params.id);
       if (isNaN(projectId)) {
         return res.status(400).json({ error: "Invalid project ID" });
@@ -249,14 +256,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No file uploaded" });
       }
       
+      // Debug file information
+      console.log("Uploaded file:", {
+        path: req.file.path,
+        filename: req.file.filename,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+      
+      try {
+        // Verify the file exists
+        await fs.promises.access(req.file.path, fs.constants.F_OK);
+        console.log("File exists at path:", req.file.path);
+      } catch (fileError) {
+        console.error("File does not exist:", fileError);
+        return res.status(500).json({ error: "File upload failed - file not saved correctly" });
+      }
+      
       // Generate app icons for different sizes
+      console.log("Generating app icons...");
       const iconPath = req.file.path;
       const generatedIcons = await generateAppIcon(iconPath, projectId);
+      console.log("Generated icons:", generatedIcons);
       
       // Update project with the icon path
       const updatedProject = await storage.updateProject(projectId, {
         iconPath: generatedIcons.iconSetPath
       });
+      
+      console.log("Project updated with icon path:", updatedProject.iconPath);
       
       res.json({
         message: "Icon uploaded and processed successfully",
@@ -265,10 +293,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error uploading icon:", error);
-      res.status(500).json({ 
-        error: "Server error", 
-        message: (error as Error).message 
-      });
+      
+      // Provide more detailed error information
+      if (error instanceof Error) {
+        res.status(500).json({ 
+          error: "Server error", 
+          message: error.message,
+          stack: process.env.NODE_ENV === 'production' ? undefined : error.stack 
+        });
+      } else {
+        res.status(500).json({ 
+          error: "Server error", 
+          message: String(error)
+        });
+      }
     }
   });
 
