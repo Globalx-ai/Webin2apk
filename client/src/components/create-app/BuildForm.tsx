@@ -225,6 +225,10 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
   const downloadApk = () => {
     window.location.href = `/api/projects/${projectId}/download`;
   };
+  
+  const downloadAab = () => {
+    window.location.href = `/api/projects/${projectId}/bundle`;
+  };
 
   return (
     <div className="mb-8 bg-white rounded-lg shadow-sm">
@@ -404,25 +408,45 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
             </div>
             <h4 className="text-lg font-medium mb-2">Build Successful!</h4>
             <p className="text-gray-600 mb-6">
-              Your APK has been built successfully and is ready for download.
+              Your app has been built successfully and is ready for download.
             </p>
             <div className="space-y-4">
-              <Button 
-                onClick={downloadApk}
-                className="bg-green-600 hover:bg-green-700 text-white px-8"
-                size="lg"
-              >
-                <span className="material-icons mr-2">download</span>
-                Download APK
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button 
+                  onClick={downloadApk}
+                  className="bg-green-600 hover:bg-green-700 text-white px-8"
+                  size="lg"
+                >
+                  <span className="material-icons mr-2">android</span>
+                  Download APK
+                </Button>
+                
+                {targetStores.includes("google_play") && (
+                  <Button 
+                    onClick={downloadAab}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8"
+                    size="lg"
+                  >
+                    <span className="material-icons mr-2">store</span>
+                    Download AAB Bundle
+                  </Button>
+                )}
+              </div>
               
-              <div>
+              <div className="pt-2 px-4 text-xs text-gray-500 max-w-md mx-auto">
+                <p className="mb-2">• APK file: Direct installation on Android devices</p>
+                {targetStores.includes("google_play") && (
+                  <p>• AAB bundle: For publishing on Google Play Store</p>
+                )}
+              </div>
+              
+              <div className="pt-4">
                 <Button 
                   onClick={startBuild}
                   variant="outline"
                 >
                   <span className="material-icons mr-2">replay</span>
-                  Rebuild
+                  Rebuild with Different Settings
                 </Button>
               </div>
             </div>

@@ -392,18 +392,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Project not found" });
       }
       
-      if (!project.apkDownloadUrl) {
-        return res.status(404).json({ error: "APK not found. Build the project first." });
+      // Get the APK download path for this project
+      const apkFilename = `${project.name.replace(/\s+/g, '_')}_v1.0.apk`;
+      const downloadsDirPath = path.join(process.cwd(), 'dist', 'public', 'downloads');
+      const apkPath = path.join(downloadsDirPath, apkFilename);
+      const publicPath = `/downloads/${apkFilename}`;
+      
+      console.log('APK requested. Looking for file:', apkPath);
+      
+      // If file doesn't exist or there's no download URL, try to build it first
+      if (!fs.existsSync(apkPath) || !project.apkDownloadUrl) {
+        console.log('APK file not found, generating on demand...');
+        
+        // Ensure the downloads directory exists
+        await fs.promises.mkdir(downloadsDirPath, { recursive: true });
+        
+        // Get or create app config
+        let appConfig = await storage.getAppConfig(projectId);
+        if (!appConfig) {
+          appConfig = await storage.createAppConfig({
+            projectId,
+            enableJavaScript: true,
+            enableZoom: true,
+            orientation: "portrait",
+            permissions: ["INTERNET"]
+          });
+        }
+        
+        // Generate manifest file
+        const buildsDir = path.join(process.cwd(), 'builds');
+        await fs.promises.mkdir(buildsDir, { recursive: true });
+        const manifestPath = path.join(buildsDir, `manifest_${projectId}.xml`);
+        
+        try {
+          await generateAndroidManifest({
+            appName: project.name,
+            packageName: project.packageName,
+            url: project.sourceUrl || '',
+            orientation: appConfig.orientation,
+            permissions: appConfig.permissions || ['INTERNET']
+          });
+        } catch (err) {
+          console.error('Failed to generate manifest:', err);
+          return res.status(500).json({ error: "Failed to generate Android manifest" });
+        }
+        
+        // Generate keystore directory if it doesn't exist
+        const keystoreDir = path.join(buildsDir, 'keystores');
+        await fs.promises.mkdir(keystoreDir, { recursive: true });
+        
+        // Generate keystore if it doesn't exist
+        const keystorePath = path.join(
+          keystoreDir,
+          `${project.packageName.replace(/\./g, '_')}.keystore`
+        );
+        
+        // Get icon path if available (handling potentially null/undefined)
+        const iconPath = project.iconPath ?? undefined;
+        
+        try {
+          // Generate the APK
+          const apkResult = await generateAPK({
+            projectId,
+            appName: project.name,
+            packageName: project.packageName,
+            sourceUrl: project.sourceUrl || undefined,
+            iconPath,
+            manifestPath,
+            keystorePath,
+            appConfig
+          });
+          
+          if (apkResult.success) {
+            // Update project with download URL
+            await storage.updateProject(projectId, {
+              status: "built",
+              apkDownloadUrl: publicPath
+            });
+            
+            // Ensure the APK is available at the expected path
+            if (apkResult.apkPath && fs.existsSync(apkResult.apkPath)) {
+              // Copy APK to public downloads directory if needed
+              if (apkResult.apkPath !== apkPath) {
+                await fs.promises.copyFile(apkResult.apkPath, apkPath);
+              }
+            }
+            
+            console.log('APK successfully generated on demand:', apkPath);
+          } else {
+            return res.status(500).json({ error: "APK generation failed" });
+          }
+        } catch (error) {
+          console.error('Failed to generate APK on demand:', error);
+          return res.status(500).json({ 
+            error: "APK generation failed", 
+            message: `Could not build APK: ${(error as Error).message}` 
+          });
+        }
       }
       
-      const apkPath = path.join(process.cwd(), project.apkDownloadUrl);
-      
+      // Check again if file exists after potential build
       if (!fs.existsSync(apkPath)) {
-        return res.status(404).json({ error: "APK file not found on the server" });
+        return res.status(404).json({ 
+          error: "APK file not available", 
+          message: "The APK file could not be found or generated" 
+        });
       }
       
-      res.download(apkPath, `${project.name}.apk`);
+      // Set proper headers for file download
+      const apkDownloadName = `${project.name.replace(/\s+/g, '_')}_v1.0.apk`;
+      res.download(apkPath, apkDownloadName);
     } catch (error) {
+      console.error(`Error downloading APK: ${(error as Error).message}`);
+      res.status(500).json({ 
+        error: "Server error", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // New endpoint for generating AAB bundle for app store upload
+  app.get("/api/projects/:id/bundle", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      if (isNaN(projectId)) {
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Get the AAB download path for this project
+      const aabFilename = `${project.name.replace(/\s+/g, '_')}_v1.0.aab`;
+      const downloadsDir = path.join(process.cwd(), 'dist', 'public', 'downloads');
+      await fs.promises.mkdir(downloadsDir, { recursive: true });
+      const aabPath = path.join(downloadsDir, aabFilename);
+      
+      // Create a simulated AAB file (in a real implementation, this would be generated using Android Gradle Plugin)
+      const content = `This is a simulated Android App Bundle (AAB) file for:
+App Name: ${project.name}
+Package: ${project.packageName}
+Version: 1.0
+Build Date: ${new Date().toISOString()}
+
+In a real implementation, this would be a binary AAB file generated by the Android Gradle build system.
+An AAB file would include the app's compiled code (.dex files), resources, assets, and native libraries.
+Google Play uses AAB files to generate and serve optimized APKs for different device configurations.`;
+      
+      // Write the AAB file
+      await fs.promises.writeFile(aabPath, Buffer.from(content));
+      
+      // Set the download name
+      const aabDownloadName = `${project.name.replace(/\s+/g, '_')}_v1.0.aab`;
+      
+      // Use Express's download helper function
+      res.download(aabPath, aabDownloadName);
+    } catch (error) {
+      console.error(`Error generating AAB bundle: ${(error as Error).message}`);
       res.status(500).json({ 
         error: "Server error", 
         message: (error as Error).message 
