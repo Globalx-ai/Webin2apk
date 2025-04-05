@@ -246,17 +246,84 @@ async function copyIcons(iconSourcePath: string, projectDir: string, packageName
     'mipmap-xxxhdpi'
   ];
   
+  // Check if iconSourcePath is a directory or file
+  let isDirectory = false;
+  try {
+    const stats = fs.statSync(iconSourcePath);
+    isDirectory = stats.isDirectory();
+  } catch (err) {
+    console.error('Error checking icon path:', err);
+    // Continue with default icon if there's an error
+  }
+  
   for (const dir of iconDirs) {
     const targetDir = path.join(resDir, dir);
     await fs.promises.mkdir(targetDir, { recursive: true });
     
-    // In a real implementation, you would resize the icon and save it to each directory
+    // Icon destination path
     const iconDestPath = path.join(targetDir, 'ic_launcher.png');
     
-    // Just copy the source icon for this example
-    if (fs.existsSync(iconSourcePath)) {
-      await fs.promises.copyFile(iconSourcePath, iconDestPath);
+    try {
+      // Handle differently based on if iconSourcePath is a directory or file
+      if (isDirectory) {
+        // If it's a directory, find the appropriate size icon in the directory
+        const sizeMap: Record<string, string> = {
+          'mipmap-mdpi': 'icon_mdpi.png',
+          'mipmap-hdpi': 'icon_hdpi.png',
+          'mipmap-xhdpi': 'icon_xhdpi.png',
+          'mipmap-xxhdpi': 'icon_xxhdpi.png',
+          'mipmap-xxxhdpi': 'icon_xxxhdpi.png'
+        };
+        
+        const sourceIconName = sizeMap[dir] || 'icon_mdpi.png';
+        const sourceIconPath = path.join(iconSourcePath, sourceIconName);
+        
+        if (fs.existsSync(sourceIconPath)) {
+          await fs.promises.copyFile(sourceIconPath, iconDestPath);
+        } else {
+          // Fallback to playstore icon if specific size not found
+          const playstoreIcon = path.join(iconSourcePath, 'icon_playstore.png');
+          if (fs.existsSync(playstoreIcon)) {
+            await fs.promises.copyFile(playstoreIcon, iconDestPath);
+          } else {
+            // Create a default icon if none is available
+            // In a real implementation, this would generate a simple icon with the app name
+            await createDefaultIcon(iconDestPath);
+          }
+        }
+      } else {
+        // Direct file copy
+        if (fs.existsSync(iconSourcePath)) {
+          await fs.promises.copyFile(iconSourcePath, iconDestPath);
+        } else {
+          // Create a default icon if none is available
+          await createDefaultIcon(iconDestPath);
+        }
+      }
+    } catch (err) {
+      console.error(`Error copying icon for ${dir}:`, err);
+      // Create a default icon if there's an error
+      await createDefaultIcon(iconDestPath);
     }
+  }
+}
+
+/**
+ * Creates a default icon file when no icon is provided
+ */
+async function createDefaultIcon(destPath: string): Promise<void> {
+  // In a real implementation, this would generate a simple icon
+  // For this example, we'll create a blank image
+  const defaultIconPath = path.join(process.cwd(), 'generated-icon.png');
+  if (fs.existsSync(defaultIconPath)) {
+    await fs.promises.copyFile(defaultIconPath, destPath);
+  } else {
+    // Write a small PNG file
+    const buffer = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw1AUhU9TpSIVBzuIOGSoThZERRy1CkWoEGqFVh1MXvoHTRqSFBdHwbXg4M9i1cHFWVcHV0EQ/AFxc3NSdJES70sKLWK88HgfZ985vHsuIFTLTLM6xgFNt810Ii7msqtC5yuCGEYPBhCVmWXMSpIUvuPrHgG+38V5ln/fn6NbzVsMCIjEs8wwbeIN4ulN22C8TyywrCjK58QTJl2Q+JHristvnAtOCzwzYqZT88QCsVhoY7mNWdFUiaeIo4qqUb4/57LCeYuzWq6y5j35C8N5fWWZ6zRHkMAiliBBhIIqSijDRox2nRQLaTpP+PiHXb/EuYRyCVIqwZGAOD702AH+4PZsxUtjnU28QBw4aJU2FO3l4WJjQbC+4tw3g65dIDzmmFaS9PyUP/wOBLr2i+aNzXFh6wCweLxsy35UJ+H0E/TINS15+uaO3gm9b4XeAYdugaa9Vm/Y9D7+BWoru/4A3esKdW3O8Po9ML+nX0ZDVsIvzyoQbPwLnN07x8LZ/Z1jAAAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACsSURBVHja7dExDQMxEMDAD+rR+qvQPH48U+S/pGLH9k53A9D1BgBgxv12nAksX4BDQABgIiTnxtIp/vkGAAAAAAAAAAAAAAAAAAAAAAAAAABYbHFgj05ULN4AAAAAAAAAAAAAAAAAAAAAAAAAAACYFie24sSZ9lEAAAAAAAAAAAAAAAAAAAAAAAAAAGCpxYkVJwAAAAAAAAAAAAAAAAAAAAAAAAAAAP49v1StE5UFz5IAAAAASUVORK5CYII=',
+      'base64'
+    );
+    await fs.promises.writeFile(destPath, buffer);
   }
 }
 

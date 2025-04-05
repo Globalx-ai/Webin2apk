@@ -6,11 +6,11 @@ interface AppPreviewProps {
   packageName: string;
 }
 
-// Use a static time instead of a dynamic one to improve performance
-const staticTime = "9:41"; // Apple's marketing time
-
 // Using memo to prevent excessive re-renders
 const AppPreview = memo(({ appName, url, packageName }: AppPreviewProps) => {
+  // Use a static time instead of a dynamic one to improve performance
+  const staticTime = "9:41"; // Apple's marketing time
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h3 className="text-xl font-semibold mb-4">Real-time Preview</h3>
