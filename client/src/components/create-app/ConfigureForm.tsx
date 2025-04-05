@@ -103,52 +103,43 @@ const ConfigureForm = ({ projectId, onNext, onBack }: ConfigureFormProps) => {
               </TabsList>
               
               <TabsContent value="permissions" className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="permissions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Android Permissions</FormLabel>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        {availablePermissions.map((permission) => (
-                          <FormField
-                            key={permission.id}
-                            control={form.control}
-                            name="permissions"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(permission.id)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        field.onChange([...field.value, permission.id]);
-                                      } else {
-                                        field.onChange(
-                                          field.value?.filter((value) => value !== permission.id)
-                                        );
-                                      }
-                                    }}
-                                    // Internet permission is required and can't be disabled
-                                    disabled={permission.id === "INTERNET"}
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">
-                                  {permission.label}
-                                  {permission.id === "INTERNET" && " (Required)"}
-                                </FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                        ))}
+                <FormItem>
+                  <FormLabel>Android Permissions</FormLabel>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    {availablePermissions.map((permission) => (
+                      <div key={permission.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`permission-${permission.id}`}
+                          checked={form.watch("permissions").includes(permission.id)}
+                          onCheckedChange={(checked) => {
+                            const currentPermissions = form.getValues("permissions");
+                            if (checked) {
+                              form.setValue("permissions", [...currentPermissions, permission.id]);
+                            } else {
+                              form.setValue(
+                                "permissions",
+                                currentPermissions.filter((value) => value !== permission.id)
+                              );
+                            }
+                          }}
+                          // Internet permission is required and can't be disabled
+                          disabled={permission.id === "INTERNET"}
+                        />
+                        <label 
+                          htmlFor={`permission-${permission.id}`}
+                          className="text-sm text-gray-600 cursor-pointer"
+                        >
+                          {permission.label}
+                          {permission.id === "INTERNET" && " (Required)"}
+                        </label>
                       </div>
-                      <FormDescription>
-                        Select the permissions your app needs. Be mindful that excessive permissions may affect user trust.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    ))}
+                  </div>
+                  <FormDescription>
+                    Select the permissions your app needs. Be mindful that excessive permissions may affect user trust.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
                 
                 <FormField
                   control={form.control}

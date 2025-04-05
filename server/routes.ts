@@ -111,7 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: 1, // For simplicity, default to user ID 1
         name: formData.data.appName,
         packageName: formData.data.packageName,
-        sourceUrl: formData.data.websiteUrl,
+        sourceUrl: formData.data.websiteUrl || "",
+        sourceType: formData.data.sourceType || "website",
+        htmlContent: formData.data.htmlContent || null,
         description: formData.data.description || ""
       };
       
@@ -308,8 +310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId,
         appName: project.name,
         packageName: project.packageName,
-        sourceUrl: project.sourceUrl,
-        iconPath: project.iconPath,
+        sourceUrl: project.sourceUrl || "",
+        iconPath: project.iconPath || undefined,
         manifestPath,
         keystorePath,
         appConfig
@@ -367,6 +369,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Server error", 
         message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Route to validate and optimize HTML content
+  app.post("/api/optimize-html", async (req: Request, res: Response) => {
+    try {
+      const { htmlContent } = req.body;
+      
+      if (!htmlContent) {
+        return res.status(400).json({ error: "HTML content is required" });
+      }
+      
+      // Import the AI service for HTML optimization
+      const { optimizeHtml } = await import('./services/aiService');
+      
+      // Optimize the HTML content
+      const optimizedHtml = await optimizeHtml(htmlContent);
+      
+      return res.json({ 
+        success: true, 
+        optimizedHtml,
+        message: "HTML content optimized successfully" 
+      });
+    } catch (error) {
+      console.error("Error optimizing HTML:", error);
+      res.status(500).json({ 
+        error: "Failed to optimize HTML content",
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Route to validate custom code
+  app.post("/api/validate-code", async (req: Request, res: Response) => {
+    try {
+      const { language, content, projectId } = req.body;
+      
+      if (!language || !content) {
+        return res.status(400).json({ error: "Language and code content are required" });
+      }
+      
+      // Import the AI service for code validation
+      const { validateCode } = await import('./services/aiService');
+      
+      // Validate the code
+      const validationResult = await validateCode({ language, content, projectId: Number(projectId) });
+      
+      return res.json({ 
+        success: true,
+        ...validationResult
+      });
+    } catch (error) {
+      console.error("Error validating code:", error);
+      res.status(500).json({ 
+        error: "Failed to validate code",
+        message: (error as Error).message
+      });
+    }
+  });
+  
+  // Route to auto-complete code
+  app.post("/api/complete-code", async (req: Request, res: Response) => {
+    try {
+      const { language, partialCode, context } = req.body;
+      
+      if (!language || !partialCode) {
+        return res.status(400).json({ error: "Language and partial code are required" });
+      }
+      
+      // Import the AI service for code completion
+      const { completeCode } = await import('./services/aiService');
+      
+      // Complete the code
+      const completionResult = await completeCode(language, partialCode, context || '');
+      
+      return res.json({ 
+        success: true,
+        ...completionResult
+      });
+    } catch (error) {
+      console.error("Error completing code:", error);
+      res.status(500).json({ 
+        error: "Failed to complete code",
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Route to analyze PDF content for app conversion
+  app.post("/api/analyze-pdf", upload.single('pdfFile'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "PDF file is required" });
+      }
+      
+      const pdfFilePath = req.file.path;
+      const pdfFileUrl = `file://${pdfFilePath}`;
+      
+      // Import the AI service for PDF analysis
+      const { analyzePdf } = await import('./services/aiService');
+      
+      // Analyze the PDF content
+      const analysisResult = await analyzePdf(pdfFileUrl);
+      
+      return res.json({ 
+        success: true,
+        ...analysisResult,
+        filePath: pdfFilePath
+      });
+    } catch (error) {
+      console.error("Error analyzing PDF:", error);
+      res.status(500).json({ 
+        error: "Failed to analyze PDF file",
+        message: (error as Error).message
       });
     }
   });

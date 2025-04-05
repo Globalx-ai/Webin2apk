@@ -2,6 +2,7 @@ import { apiRequest } from "./queryClient";
 
 /**
  * Client-side utility functions for APK generation and management
+ * Includes functionality for AI-powered features like code validation and HTML optimization
  */
 
 /**
@@ -144,4 +145,144 @@ export function estimateApkSize(hasCustomIcons: boolean, hasAds: boolean): numbe
   }
   
   return size;
+}
+
+/**
+ * Validates custom code using AI
+ * 
+ * @param language Programming language (java, kotlin, javascript)
+ * @param content Code content to validate
+ * @param projectId Project ID
+ * @returns Validation result with issues and suggestions
+ */
+export async function validateCustomCode(
+  language: string,
+  content: string,
+  projectId: number
+): Promise<{
+  success: boolean;
+  isValid?: boolean;
+  issues?: Array<{
+    severity: 'error' | 'warning' | 'info';
+    message: string;
+    line?: number;
+    column?: number;
+  }>;
+  suggestions?: Array<{
+    type: 'fix' | 'improvement';
+    description: string;
+    code?: string;
+  }>;
+  fixedCode?: string;
+  error?: string;
+}> {
+  try {
+    const response = await apiRequest("POST", "/api/validate-code", {
+      language,
+      content,
+      projectId
+    });
+    
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to validate code"
+    };
+  }
+}
+
+/**
+ * Auto-completes code using AI
+ * 
+ * @param language Programming language
+ * @param partialCode Partial code to complete
+ * @param context Additional context about code purpose
+ * @returns Completed code with explanation
+ */
+export async function completeCode(
+  language: string,
+  partialCode: string,
+  context: string
+): Promise<{
+  success: boolean;
+  completedCode?: string;
+  explanation?: string;
+  error?: string;
+}> {
+  try {
+    const response = await apiRequest("POST", "/api/complete-code", {
+      language,
+      partialCode,
+      context
+    });
+    
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to generate code"
+    };
+  }
+}
+
+/**
+ * Optimizes HTML content for mobile viewing
+ * 
+ * @param htmlContent Raw HTML content
+ * @returns Optimized HTML with responsive design
+ */
+export async function optimizeHtml(htmlContent: string): Promise<{
+  success: boolean;
+  optimizedHtml?: string;
+  error?: string;
+}> {
+  try {
+    const response = await apiRequest("POST", "/api/optimize-html", {
+      htmlContent
+    });
+    
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to optimize HTML"
+    };
+  }
+}
+
+/**
+ * Uploads and analyzes a PDF for app conversion
+ * 
+ * @param pdfFile The PDF file
+ * @returns Analysis of PDF structure
+ */
+export async function analyzePdf(pdfFile: File): Promise<{
+  success: boolean;
+  analysis?: string;
+  filePath?: string;
+  error?: string;
+}> {
+  try {
+    const formData = new FormData();
+    formData.append("pdfFile", pdfFile);
+    
+    // Manual fetch since our apiRequest doesn't support FormData
+    const response = await fetch("/api/analyze-pdf", {
+      method: "POST",
+      body: formData,
+      credentials: "include"
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to analyze PDF: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      error: (error as Error).message || "Failed to analyze PDF"
+    };
+  }
 }

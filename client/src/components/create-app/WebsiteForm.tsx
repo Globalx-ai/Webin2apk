@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -11,22 +11,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
+import { websiteFormSchema } from "@shared/schema";
+import { suggestPackageName } from "@/lib/apk-generator";
 
-const formSchema = z.object({
-  websiteUrl: z.string().url("Please enter a valid URL"),
-  appName: z.string().min(3, "App name must be at least 3 characters"),
-  packageName: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/i, "Invalid package name format (e.g., com.example.app)"),
-  description: z.string().optional(),
-  enableJavaScript: z.boolean().default(true),
-  enableDomStorage: z.boolean().default(true),
-  enableZoom: z.boolean().default(false),
-  enableCache: z.boolean().default(true),
-  orientation: z.enum(["auto", "portrait", "landscape"]).default("auto"),
-  offlineMode: z.enum(["none", "cache", "pwa"]).default("none"),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof websiteFormSchema>;
 
 interface WebsiteFormProps {
   onNext: (data: FormValues) => void;
@@ -36,11 +27,18 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
   const { toast } = useToast();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isValidatingUrl, setIsValidatingUrl] = useState(false);
+  const [currentTab, setCurrentTab] = useState<"website" | "html" | "pdf">("website");
+  const [isProcessingCode, setIsProcessingCode] = useState(false);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const pdfFileRef = useRef<HTMLInputElement>(null);
+  const [uploadedPdfName, setUploadedPdfName] = useState("");
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(websiteFormSchema),
     defaultValues: {
+      sourceType: "website",
       websiteUrl: "",
+      htmlContent: "",
       appName: "",
       packageName: "",
       description: "",
@@ -50,10 +48,39 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
       enableCache: true,
       orientation: "auto",
       offlineMode: "none",
+      includeCustomCode: false,
+      customCodeLanguage: "java",
+      customCodeContent: "",
     },
   });
 
   const onSubmit = (data: FormValues) => {
+    // Set the source type based on the active tab
+    data.sourceType = currentTab;
+    
+    if (currentTab === "website" && !data.websiteUrl) {
+      toast({
+        title: "Website URL is required",
+        description: "Please enter a valid website URL",
+        variant: "destructive",
+      });
+      return;
+    } else if (currentTab === "html" && !data.htmlContent) {
+      toast({
+        title: "HTML content is required",
+        description: "Please enter HTML content",
+        variant: "destructive",
+      });
+      return;
+    } else if (currentTab === "pdf" && !uploadedPdfName) {
+      toast({
+        title: "PDF file is required",
+        description: "Please upload a PDF file",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     onNext(data);
   };
 
@@ -89,7 +116,7 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
           form.setValue("appName", appName, { shouldValidate: true });
           
           // Generate a package name from the domain
-          const packageName = `com.${domain.replace(/\./g, "_")}`;
+          const packageName = suggestPackageName(appName);
           form.setValue("packageName", packageName, { shouldValidate: true });
         } catch (error) {
           // Ignore any errors when trying to create a default app name
@@ -106,270 +133,562 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
     }
   };
 
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadedPdfName(file.name);
+    
+    // Generate app name from PDF filename if not set
+    if (!form.getValues("appName")) {
+      const appName = file.name.replace(/\.pdf$/i, "");
+      form.setValue("appName", appName, { shouldValidate: true });
+      
+      // Generate package name from app name
+      const packageName = suggestPackageName(appName);
+      form.setValue("packageName", packageName, { shouldValidate: true });
+    }
+    
+    // In a real implementation, we would upload the PDF here
+    toast({
+      title: "PDF Uploaded",
+      description: `File "${file.name}" ready for conversion`,
+    });
+  };
+
+  const handleTabChange = (tab: string) => {
+    // Only certain values are valid
+    if (tab === "website" || tab === "html" || tab === "pdf") {
+      setCurrentTab(tab as "website" | "html" | "pdf");
+      form.setValue("sourceType", tab as "website" | "html" | "pdf");
+    }
+  };
+
+  const handleGenerateCode = async () => {
+    setIsProcessingCode(true);
+    
+    try {
+      const context = `A WebView Android app that will display ${form.getValues("websiteUrl") || "content"}.`;
+      
+      toast({
+        title: "Code Generation Started",
+        description: "AI is generating code for your app...",
+      });
+      
+      // In a real implementation, this would call the AI service
+      setTimeout(() => {
+        const sampleCode = `// AI-generated code for Android WebView app
+package ${form.getValues("packageName")};
+
+import android.os.Bundle;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+    private WebView webView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        webView = findViewById(R.id.webview);
+        webView.getSettings().setJavaScriptEnabled(true);
+        webView.setWebViewClient(new WebViewClient());
+        webView.loadUrl("${form.getValues("websiteUrl") || "about:blank"}");
+    }
+    
+    @Override
+    public void onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
+    }
+}`;
+        
+        form.setValue("customCodeContent", sampleCode, { shouldValidate: true });
+        
+        toast({
+          title: "Code Generated Successfully",
+          description: "Custom code has been generated and is ready for review",
+        });
+        
+        setIsProcessingCode(false);
+      }, 2000);
+    } catch (error) {
+      toast({
+        title: "Error Generating Code",
+        description: "Failed to generate code. Please try again.",
+        variant: "destructive",
+      });
+      setIsProcessingCode(false);
+    }
+  };
+
   return (
     <div className="mb-8 bg-white rounded-lg shadow-sm">
       <div className="border-b border-gray-200">
         <div className="p-6">
-          <h3 className="text-xl font-semibold mb-2">Step 1: Enter Website Details</h3>
-          <p className="text-gray-600 mb-4">Provide the website URL you want to convert into an Android app</p>
+          <h3 className="text-xl font-semibold mb-2">Step 1: Select Content Source</h3>
+          <p className="text-gray-600 mb-4">Choose the type of content you want to convert into an Android app</p>
           
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="websiteUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website URL</FormLabel>
-                    <div className="flex">
-                      <FormControl>
-                        <Input 
-                          placeholder="https://example.com" 
-                          {...field} 
-                          className="rounded-r-none"
-                        />
-                      </FormControl>
-                      <Button 
-                        type="button" 
-                        onClick={testUrl}
-                        disabled={isValidatingUrl}
-                        variant="outline"
-                        className="rounded-l-none border-l-0"
-                      >
-                        {isValidatingUrl ? "Testing..." : "Test"}
-                      </Button>
-                    </div>
-                    <FormDescription>
-                      Enter the full URL including https:// or http://
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="appName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>App Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="My App" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        This will appear on the device home screen
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <Tabs defaultValue="website" value={currentTab} onValueChange={handleTabChange} className="mb-6">
+            <TabsList className="grid grid-cols-3 mb-6">
+              <TabsTrigger value="website">Website URL</TabsTrigger>
+              <TabsTrigger value="html">HTML Content</TabsTrigger>
+              <TabsTrigger value="pdf">PDF File</TabsTrigger>
+            </TabsList>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <TabsContent value="website">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <FormField
+                        control={form.control}
+                        name="websiteUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Website URL</FormLabel>
+                            <div className="flex">
+                              <FormControl>
+                                <Input 
+                                  placeholder="https://example.com" 
+                                  {...field} 
+                                  className="rounded-r-none"
+                                />
+                              </FormControl>
+                              <Button 
+                                type="button" 
+                                onClick={testUrl}
+                                disabled={isValidatingUrl}
+                                variant="outline"
+                                className="rounded-l-none border-l-0"
+                              >
+                                {isValidatingUrl ? "Testing..." : "Test"}
+                              </Button>
+                            </div>
+                            <FormDescription>
+                              Enter the full URL including https:// or http://
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="html">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <FormField
+                        control={form.control}
+                        name="htmlContent"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>HTML Content</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="<!DOCTYPE html><html><head>...</head><body>...</body></html>" 
+                                {...field} 
+                                rows={10}
+                                className="font-mono text-sm"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Paste your HTML content. For best results, include responsive meta tags and CSS.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="flex justify-end mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            toast({
+                              title: "HTML Optimization",
+                              description: "AI will optimize your HTML for mobile viewing when you build the app",
+                            });
+                          }}
+                        >
+                          <span className="material-icons mr-2 text-sm">auto_fix_high</span>
+                          Optimize for Mobile
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="pdf">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <FormItem>
+                        <FormLabel>Upload PDF File</FormLabel>
+                        <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+                          onClick={() => pdfFileRef.current?.click()}>
+                          <input 
+                            type="file" 
+                            ref={pdfFileRef} 
+                            accept=".pdf" 
+                            className="hidden" 
+                            onChange={handlePdfUpload}
+                          />
+                          
+                          {uploadedPdfName ? (
+                            <>
+                              <span className="material-icons text-4xl text-green-500 mb-2">description</span>
+                              <p className="text-sm font-medium">{uploadedPdfName}</p>
+                              <p className="text-xs text-gray-500 mt-1">Click to change file</p>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-icons text-4xl text-gray-400 mb-2">upload_file</span>
+                              <p className="text-sm font-medium">Click to upload PDF</p>
+                              <p className="text-xs text-gray-500 mt-1">Supports PDF files up to 20MB</p>
+                            </>
+                          )}
+                        </div>
+                        <FormDescription>
+                          PDF content will be converted into an interactive Android app
+                        </FormDescription>
+                      </FormItem>
+                      
+                      {isProcessingPdf && (
+                        <div className="mt-4 p-4 border rounded-lg bg-blue-50">
+                          <div className="flex items-center">
+                            <div className="mr-3 animate-spin">
+                              <span className="material-icons">refresh</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Processing PDF</p>
+                              <p className="text-xs text-gray-600">Analyzing content structure...</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="appName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>App Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="My App" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          This will appear on the device home screen
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="packageName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Package Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="com.example.myapp" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Unique identifier (e.g., com.yourcompany.appname)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 
                 <FormField
                   control={form.control}
-                  name="packageName"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Package Name</FormLabel>
+                      <FormLabel>App Description</FormLabel>
                       <FormControl>
-                        <Input placeholder="com.example.myapp" {...field} />
+                        <Textarea 
+                          placeholder="A brief description of your app..." 
+                          {...field} 
+                          rows={3}
+                        />
                       </FormControl>
                       <FormDescription>
-                        Unique identifier (e.g., com.yourcompany.appname)
+                        Will be used in app store listings
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-              
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>App Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="A brief description of your app..." 
-                        {...field} 
-                        rows={3}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Will be used in app store listings
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              <div className="flex justify-between items-center pt-4">
-                <Collapsible
-                  open={isAdvancedOpen}
-                  onOpenChange={setIsAdvancedOpen}
-                  className="w-full"
-                >
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center cursor-pointer">
-                      <Checkbox
-                        id="advanced-options"
-                        checked={isAdvancedOpen}
-                        onCheckedChange={(checked) => setIsAdvancedOpen(!!checked)}
-                      />
-                      <label htmlFor="advanced-options" className="ml-2 block text-sm text-gray-600">
-                        Show advanced options
-                      </label>
-                    </div>
-                  </CollapsibleTrigger>
-                  
-                  <CollapsibleContent className="mt-6 space-y-6 border-t pt-6">
-                    <h4 className="text-lg font-medium mb-4">Advanced Options</h4>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">WebView Settings</label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="enableJavaScript"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm text-gray-600">Enable JavaScript</FormLabel>
-                            </FormItem>
-                          )}
+                {/* Custom Code Section */}
+                <FormField
+                  control={form.control}
+                  name="includeCustomCode"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start space-x-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          id="include-code"
                         />
-                        
-                        <FormField
-                          control={form.control}
-                          name="enableDomStorage"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm text-gray-600">Enable DOM Storage</FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="enableZoom"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm text-gray-600">Enable Zoom Controls</FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="enableCache"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm text-gray-600">Enable Cache</FormLabel>
-                            </FormItem>
-                          )}
-                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel htmlFor="include-code" className="text-sm font-medium">
+                          Include Custom Code
+                        </FormLabel>
+                        <FormDescription>
+                          Add custom Android code to enhance your app functionality
+                        </FormDescription>
                       </div>
-                    </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name="orientation"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Orientation</FormLabel>
-                          <FormControl>
-                            <RadioGroup 
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("includeCustomCode") && (
+                  <div className="p-4 border rounded-lg space-y-4">
+                    <div className="flex justify-between items-center">
+                      <FormField
+                        control={form.control}
+                        name="customCodeLanguage"
+                        render={({ field }) => (
+                          <FormItem className="w-1/3">
+                            <FormLabel>Language</FormLabel>
+                            <Select 
                               value={field.value} 
                               onValueChange={field.onChange}
-                              className="flex space-x-4"
                             >
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <RadioGroupItem value="auto" />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">Auto</FormLabel>
-                              </FormItem>
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <RadioGroupItem value="portrait" />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">Portrait</FormLabel>
-                              </FormItem>
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <RadioGroupItem value="landscape" />
-                                </FormControl>
-                                <FormLabel className="text-sm text-gray-600">Landscape</FormLabel>
-                              </FormItem>
-                            </RadioGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select language" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="java">Java</SelectItem>
+                                <SelectItem value="kotlin">Kotlin</SelectItem>
+                                <SelectItem value="javascript">JavaScript</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button
+                        type="button"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                        onClick={handleGenerateCode}
+                        disabled={isProcessingCode}
+                      >
+                        <span className="material-icons mr-2 text-sm">psychology</span>
+                        {isProcessingCode ? "Generating..." : "Generate with AI"}
+                      </Button>
+                    </div>
+
                     <FormField
                       control={form.control}
-                      name="offlineMode"
+                      name="customCodeContent"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Offline Support</FormLabel>
-                          <Select 
-                            value={field.value} 
-                            onValueChange={field.onChange}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select offline mode" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">None</SelectItem>
-                              <SelectItem value="cache">Basic Cache</SelectItem>
-                              <SelectItem value="pwa">Progressive Web App (PWA)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <FormLabel>Custom Code</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="// Enter your custom code here or generate with AI" 
+                              {...field} 
+                              rows={12}
+                              className="font-mono text-sm"
+                            />
+                          </FormControl>
                           <FormDescription>
-                            Define how the app should behave without internet connection
+                            This code will be included in your Android app. AI-powered verification will check for issues.
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </CollapsibleContent>
-                </Collapsible>
+                  </div>
+                )}
 
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
-                  Continue
-                  <span className="material-icons ml-1">arrow_forward</span>
-                </Button>
-              </div>
-            </form>
-          </Form>
+                <div className="flex justify-between items-start pt-4">
+                  <Collapsible
+                    open={isAdvancedOpen}
+                    onOpenChange={setIsAdvancedOpen}
+                    className="w-full"
+                  >
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center cursor-pointer">
+                        <Checkbox
+                          id="advanced-options"
+                          checked={isAdvancedOpen}
+                          onCheckedChange={(checked) => setIsAdvancedOpen(!!checked)}
+                        />
+                        <label htmlFor="advanced-options" className="ml-2 block text-sm text-gray-600">
+                          Show advanced options
+                        </label>
+                      </div>
+                    </CollapsibleTrigger>
+                    
+                    <CollapsibleContent className="mt-6 space-y-6 border-t pt-6">
+                      <h4 className="text-lg font-medium mb-4">Advanced Options</h4>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">WebView Settings</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="enableJavaScript"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm text-gray-600">Enable JavaScript</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="enableDomStorage"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm text-gray-600">Enable DOM Storage</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="enableZoom"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm text-gray-600">Enable Zoom Controls</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="enableCache"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm text-gray-600">Enable Cache</FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                      
+                      <FormField
+                        control={form.control}
+                        name="orientation"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Orientation</FormLabel>
+                            <FormControl>
+                              <RadioGroup 
+                                value={field.value} 
+                                onValueChange={field.onChange}
+                                className="flex space-x-4"
+                              >
+                                <FormItem className="flex items-center space-x-2">
+                                  <FormControl>
+                                    <RadioGroupItem value="auto" />
+                                  </FormControl>
+                                  <FormLabel className="text-sm text-gray-600">Auto</FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2">
+                                  <FormControl>
+                                    <RadioGroupItem value="portrait" />
+                                  </FormControl>
+                                  <FormLabel className="text-sm text-gray-600">Portrait</FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2">
+                                  <FormControl>
+                                    <RadioGroupItem value="landscape" />
+                                  </FormControl>
+                                  <FormLabel className="text-sm text-gray-600">Landscape</FormLabel>
+                                </FormItem>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="offlineMode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Offline Support</FormLabel>
+                            <Select 
+                              value={field.value} 
+                              onValueChange={field.onChange}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select offline mode" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                <SelectItem value="cache">Basic Cache</SelectItem>
+                                <SelectItem value="pwa">Progressive Web App (PWA)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              Define how the app should behave without internet connection
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
+                    Continue
+                    <span className="material-icons ml-1">arrow_forward</span>
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </Tabs>
         </div>
       </div>
     </div>
