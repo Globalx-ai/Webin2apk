@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { GitHubIntegration } from "@/components/github/GitHubIntegration";
 
 interface BuildFormProps {
   projectId: number;
@@ -448,6 +449,24 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
                   <span className="material-icons mr-2">replay</span>
                   Rebuild with Different Settings
                 </Button>
+              </div>
+              
+              <div className="mt-8 pt-8 border-t border-gray-200">
+                <h5 className="text-lg font-medium mb-4">Save to GitHub</h5>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto text-sm">
+                  Save your app source code to GitHub and share it with others or continue development.
+                </p>
+                <div className="max-w-md mx-auto">
+                  <GitHubIntegration 
+                    projectId={projectId} 
+                    onSuccess={(repoUrl) => {
+                      toast({
+                        title: "GitHub Repository Created",
+                        description: `Your app has been successfully pushed to GitHub`,
+                      });
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>

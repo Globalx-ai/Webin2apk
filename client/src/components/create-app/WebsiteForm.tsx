@@ -704,6 +704,9 @@ public class MainActivity extends AppCompatActivity {
                       appName={form.watch("appName") || "My App"} 
                       url={form.watch("websiteUrl") || ""} 
                       packageName={form.watch("packageName") || "com.example.myapp"}
+                      htmlContent={form.watch("htmlContent")}
+                      sourceType={currentTab}
+                      pdfFileName={uploadedPdfName}
                     />
                   </div>
                 </div>

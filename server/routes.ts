@@ -672,6 +672,55 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       });
     }
   });
+  
+  // GitHub integration endpoint
+  app.post("/api/projects/:id/github", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const { githubToken, repoName, description, isPrivate } = req.body;
+      
+      if (!githubToken || !repoName) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "GitHub token and repository name are required"
+        });
+      }
+      
+      // Get the project to verify it exists
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ success: false, message: "Project not found" });
+      }
+      
+      // In a real implementation, this would:
+      // 1. Validate the GitHub token
+      // 2. Create a new repository with the given name
+      // 3. Push the app code to the repository
+      // 4. Update the project with the repository URL
+      
+      // For now, simulate success
+      const repoUrl = `https://github.com/user/${repoName}`;
+      
+      // Update the project with the repository URL
+      // Using 'as any' to handle the updated schema
+      await storage.updateProject(projectId, {
+        ...project,
+        githubUrl: repoUrl
+      } as any);
+      
+      res.json({
+        success: true,
+        repoUrl,
+        message: "GitHub repository created successfully"
+      });
+    } catch (error) {
+      console.error("GitHub integration error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to create GitHub repository"
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

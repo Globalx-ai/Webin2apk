@@ -32,6 +32,7 @@ export const projects = pgTable("projects", {
   htmlContent: text("html_content"), // For direct HTML content
   pdfPath: text("pdf_path"), // Path to uploaded PDF
   customCodePath: text("custom_code_path"), // Path to custom code
+  githubUrl: text("github_url"), // URL to GitHub repository
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
