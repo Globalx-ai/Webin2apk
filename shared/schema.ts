@@ -28,7 +28,7 @@ export const projects = pgTable("projects", {
   status: text("status").notNull().default("draft"),
   apkDownloadUrl: text("apk_download_url"),
   iconPath: text("icon_path"),
-  sourceType: text("source_type").notNull().default("website"), // website, html, pdf
+  sourceType: text("source_type").notNull().default("website"), // website, html, pdf, code
   htmlContent: text("html_content"), // For direct HTML content
   pdfPath: text("pdf_path"), // Path to uploaded PDF
   customCodePath: text("custom_code_path"), // Path to custom code
@@ -82,7 +82,7 @@ export type AppConfig = typeof appConfigs.$inferSelect;
 // WebsiteFormSchema for frontend validation
 export const websiteFormSchema = z.object({
   // Source type selector
-  sourceType: z.enum(["website", "html", "pdf"]).default("website"),
+  sourceType: z.enum(["website", "html", "pdf", "code"]).default("website"),
   
   // Website URL (required for website source type)
   websiteUrl: z.string().url("Please enter a valid URL").optional()

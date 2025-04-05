@@ -7,6 +7,7 @@ import { generateAPK } from "./services/apkGenerator";
 import { generateAppIcon } from "./utils/imageProcessor";
 import { generateAndroidManifest } from "./utils/manifestGenerator";
 import { generateKeystore } from "./utils/keystore";
+import { fetchCodeWithAI, improveCodeWithAI } from "./services/aiCodeFetcher";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
@@ -669,6 +670,52 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       res.status(500).json({ 
         error: "Failed to analyze PDF file",
         message: (error as Error).message
+      });
+    }
+  });
+  
+  // New endpoint for fetching code with AI
+  app.post("/api/fetch-code", async (req: Request, res: Response) => {
+    try {
+      const { language, prompt } = req.body;
+      
+      if (!language || !prompt) {
+        return res.status(400).json({ 
+          error: "Bad request", 
+          message: "Both language and prompt are required" 
+        });
+      }
+      
+      const result = await fetchCodeWithAI(language, prompt);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching code with AI:", error);
+      res.status(500).json({ 
+        error: "AI Code Generation Failed", 
+        message: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  // New endpoint for improving existing code with AI
+  app.post("/api/improve-code", async (req: Request, res: Response) => {
+    try {
+      const { language, code } = req.body;
+      
+      if (!language || !code) {
+        return res.status(400).json({ 
+          error: "Bad request", 
+          message: "Both language and code are required" 
+        });
+      }
+      
+      const result = await improveCodeWithAI(language, code);
+      res.json(result);
+    } catch (error) {
+      console.error("Error improving code with AI:", error);
+      res.status(500).json({ 
+        error: "AI Code Improvement Failed", 
+        message: error instanceof Error ? error.message : String(error) 
       });
     }
   });

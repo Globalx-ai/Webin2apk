@@ -17,6 +17,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { websiteFormSchema } from "@shared/schema";
 import { suggestPackageName } from "@/lib/apk-generator";
 import AppPreview from "./AppPreview";
+import CodeEditor from "./CodeEditor";
 
 type FormValues = z.infer<typeof websiteFormSchema>;
 
@@ -28,7 +29,7 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
   const { toast } = useToast();
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isValidatingUrl, setIsValidatingUrl] = useState(false);
-  const [currentTab, setCurrentTab] = useState<"website" | "html" | "pdf">("website");
+  const [currentTab, setCurrentTab] = useState<"website" | "html" | "pdf" | "code">("website");
   const [isProcessingCode, setIsProcessingCode] = useState(false);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const pdfFileRef = useRef<HTMLInputElement>(null);
@@ -57,8 +58,12 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
 
   const onSubmit = (data: FormValues) => {
     // Set the source type based on the active tab
-    data.sourceType = currentTab;
+    // If on the code tab, we've already set the appropriate source type
+    if (currentTab !== "code") {
+      data.sourceType = currentTab;
+    }
     
+    // Validate data based on the source type
     if (currentTab === "website" && !data.websiteUrl) {
       toast({
         title: "Website URL is required",
@@ -80,6 +85,16 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
         variant: "destructive",
       });
       return;
+    } else if (currentTab === "code") {
+      // For code tab, check if at least one generation was completed
+      if (!data.includeCustomCode && !data.htmlContent) {
+        toast({
+          title: "Code generation required",
+          description: "Please generate some code using AI first",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     onNext(data);
@@ -172,9 +187,13 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
 
   const handleTabChange = (tab: string) => {
     // Only certain values are valid
-    if (tab === "website" || tab === "html" || tab === "pdf") {
-      setCurrentTab(tab as "website" | "html" | "pdf");
-      form.setValue("sourceType", tab as "website" | "html" | "pdf");
+    if (tab === "website" || tab === "html" || tab === "pdf" || tab === "code") {
+      setCurrentTab(tab as any);
+      
+      // Only set sourceType for tabs that represent actual source types
+      if (tab !== "code") {
+        form.setValue("sourceType", tab as "website" | "html" | "pdf");
+      }
     }
   };
 
@@ -250,10 +269,11 @@ public class MainActivity extends AppCompatActivity {
           <p className="text-gray-600 mb-4">Choose the type of content you want to convert into an Android app</p>
           
           <Tabs defaultValue="website" value={currentTab} onValueChange={handleTabChange} className="mb-6">
-            <TabsList className="grid grid-cols-3 mb-6">
+            <TabsList className="grid grid-cols-4 mb-6">
               <TabsTrigger value="website">Website URL</TabsTrigger>
               <TabsTrigger value="html">HTML Content</TabsTrigger>
               <TabsTrigger value="pdf">PDF File</TabsTrigger>
+              <TabsTrigger value="code">AI Code</TabsTrigger>
             </TabsList>
             
             <Form {...form}>
@@ -389,6 +409,31 @@ public class MainActivity extends AppCompatActivity {
                       )}
                     </CardContent>
                   </Card>
+                </TabsContent>
+                
+                <TabsContent value="code">
+                  <div className="mb-6">
+                    <CodeEditor 
+                      onCodeGenerated={(generatedCode, language) => {
+                        // Set the form data based on the language
+                        if (language === "html") {
+                          form.setValue("htmlContent", generatedCode);
+                          form.setValue("sourceType", "html");
+                          setCurrentTab("html");
+                        } else if (language === "java" || language === "kotlin" || language === "javascript") {
+                          form.setValue("customCodeContent", generatedCode);
+                          form.setValue("customCodeLanguage", language);
+                          form.setValue("includeCustomCode", true);
+                        }
+                        
+                        // Show success message
+                        toast({
+                          title: "Code Generated",
+                          description: `${language.toUpperCase()} code has been generated and added to your app`,
+                        });
+                      }}
+                    />
+                  </div>
                 </TabsContent>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
