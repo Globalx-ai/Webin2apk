@@ -54,7 +54,7 @@ export default function TermsPage() {
             <li>GitHub integration for saving application files</li>
           </ul>
           
-          <h2>3. Subscription and Payments</h2>
+          <h2>3. Subscription, Payments, and Refund Policy</h2>
           <p>
             Webin2Apk offers both pay-per-use and subscription-based pricing models:
           </p>
@@ -72,6 +72,17 @@ export default function TermsPage() {
             Continued use of the Service after a price change constitutes your acceptance of the new price.
           </p>
           
+          <h3>Refund and Cancellation Policy</h3>
+          <p>
+            <strong>No Refund Policy:</strong> All purchases made through Webin2Apk, including one-time application builds and subscription fees, are final and non-refundable. 
+            By making a purchase, you acknowledge and agree that you are not entitled to a refund for any payments made to our Service.
+          </p>
+          <p>
+            <strong>Subscription Cancellation:</strong> You may cancel your subscription at any time through your account settings. 
+            Upon cancellation, you will continue to have access to the subscription benefits until the end of your current billing period. 
+            No partial refunds will be issued for the unused portion of your subscription period.
+          </p>
+          
           <h2>4. Intellectual Property Rights</h2>
           <p>
             The Service and its original content, features, and functionality are and will remain the exclusive property of 
@@ -83,7 +94,7 @@ export default function TermsPage() {
             royalty-free license to use, reproduce, and distribute such content in connection with providing the Service to you.
           </p>
           
-          <h2>5. Generated Applications</h2>
+          <h2>5. Generated Applications and Preview Functionality</h2>
           <p>
             You are responsible for ensuring that any applications created using our Service comply with all applicable laws, 
             regulations, and app store policies. This includes but is not limited to:
@@ -98,6 +109,26 @@ export default function TermsPage() {
             We do not take responsibility for the content of applications generated using our Service, nor do we guarantee 
             approval by app stores for applications submitted through our platform.
           </p>
+          
+          <h3>Preview Functionality and Limitations</h3>
+          <p>
+            Our Service provides a preview functionality that allows you to view and assess your application before finalizing the build. 
+            The following terms apply to the preview feature:
+          </p>
+          <ul>
+            <li><strong>Preview Accuracy:</strong> The preview is intended to provide a representation of how your application will function, 
+            but may not be an exact replica of the final application.</li>
+            <li><strong>Preview Loading Time:</strong> The preview may require time to load and process your content, particularly for complex 
+            websites or large files. Loading times may vary based on file size, connection speed, and server load.</li>
+            <li><strong>Web Link Access:</strong> For web links, our preview attempts to access and render the content; however, some websites 
+            may have security measures that prevent proper preview functioning. It is your responsibility to ensure the web link can be 
+            accessed properly.</li>
+            <li><strong>File Navigation:</strong> For HTML files and other documents, the preview provides basic navigation capabilities including 
+            scrolling and touch navigation (swipe for next/previous page). These navigation features are designed to help you assess content readability.</li>
+            <li><strong>Preview Verification:</strong> You are responsible for verifying that your application functions as intended through the preview 
+            before proceeding to the final build. Payment for the build is required after the preview stage, and as stated in our refund policy, 
+            no refunds will be issued after payment.</li>
+          </ul>
           
           <h2>6. Limitation of Liability</h2>
           <p>
