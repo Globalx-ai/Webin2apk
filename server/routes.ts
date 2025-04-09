@@ -1074,8 +1074,7 @@ It requires proper Apple Developer certificate signing for installation on iOS d
           const paymentIntent = await stripe.paymentIntents.create({
             amount: finalAmount,
             currency: "usd",
-            payment_method_types: ['card'], // Explicitly specify payment method types
-            automatic_payment_methods: { enabled: true }, // Enable automatic payment methods as fallback
+            automatic_payment_methods: { enabled: true }, // Enable automatic payment methods
             metadata: {
               projectId: projectId.toString(),
               userId: req.user.id.toString(),
@@ -1103,8 +1102,7 @@ It requires proper Apple Developer certificate signing for installation on iOS d
       const paymentIntent = await stripe.paymentIntents.create({
         amount: finalAmount,
         currency: "usd",
-        payment_method_types: ['card'], // Explicitly specify payment method types
-        automatic_payment_methods: { enabled: true }, // Enable automatic payment methods as fallback
+        automatic_payment_methods: { enabled: true }, // Enable automatic payment methods
         metadata: {
           projectId: projectId.toString(),
           userId: req.user.id.toString(),
