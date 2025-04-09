@@ -13,6 +13,7 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { promisify } from "util";
+import Stripe from "stripe";
 
 // Create upload directories
 const mkdirAsync = promisify(fs.mkdir);
@@ -47,6 +48,14 @@ const storage_multer = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage_multer });
+
+// Initialize Stripe
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2023-10-16' as any,
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -788,6 +797,417 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       res.status(500).json({ 
         success: false, 
         message: "Failed to create GitHub repository"
+      });
+    }
+  });
+  
+  // =====================
+  // PAYMENT ROUTES
+  // =====================
+  
+  // Create a payment intent for a project
+  app.post("/api/projects/:id/payment", async (req: Request, res: Response) => {
+    try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const projectId = parseInt(req.params.id);
+      if (isNaN(projectId)) {
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if the project belongs to the current user
+      if (project.userId !== req.user.id) {
+        return res.status(403).json({ error: "You don't have permission to access this project" });
+      }
+      
+      // Check if project is already paid
+      if (project.isPaid) {
+        return res.status(400).json({ error: "Project already paid for" });
+      }
+      
+      // Check if creating an intent or processing a payment
+      const { createIntent, useSubscription, couponCode, amount } = req.body;
+
+      // If user has active subscription, allow them to build without payment
+      if (useSubscription) {
+        const user = req.user;
+        if (user.subscriptionStatus === "active") {
+          const now = new Date().toISOString();
+          await storage.updateProject(projectId, { 
+            isPaid: true,
+            paidAt: now,
+            status: "paid",
+            paymentIntentId: `subscription_${user.id}_${Date.now()}`
+          });
+          
+          return res.json({ 
+            success: true, 
+            message: "Project marked as paid with active subscription",
+            project: await storage.getProject(projectId)
+          });
+        } else {
+          return res.status(400).json({ error: "No active subscription found" });
+        }
+      }
+      
+      // Check for coupon code
+      let finalAmount = amount || project.paymentAmount || 500; // Default $5.00
+      
+      if (couponCode) {
+        const coupon = await storage.getCouponByCode(couponCode);
+        
+        if (coupon && coupon.isActive) {
+          // Check if coupon has max uses and if it's been reached
+          if (coupon.maxUses && coupon.currentUses !== null && coupon.currentUses >= coupon.maxUses) {
+            return res.status(400).json({ error: "Coupon has reached maximum usage" });
+          }
+          
+          // Check if coupon is expired
+          if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+            return res.status(400).json({ error: "Coupon has expired" });
+          }
+          
+          // Apply discount
+          finalAmount = Math.max(0, finalAmount - Math.floor(finalAmount * (coupon.discountPercent / 100)));
+          
+          // Update project with coupon code
+          await storage.updateProject(projectId, { couponCode });
+          
+          // If 100% discount, mark as paid immediately
+          if (finalAmount === 0) {
+            const now = new Date().toISOString();
+            await storage.updateProject(projectId, { 
+              isPaid: true,
+              paidAt: now,
+              status: "paid"
+            });
+            
+            // Track coupon usage
+            await storage.incrementCouponUsage(coupon.id);
+            await storage.createCouponUsage({
+              userId: req.user.id,
+              couponId: coupon.id,
+              projectId
+            });
+            
+            return res.json({ 
+              success: true, 
+              message: "Payment successful with 100% discount coupon",
+              project: await storage.getProject(projectId)
+            });
+          }
+        } else {
+          return res.status(400).json({ error: "Invalid or inactive coupon code" });
+        }
+      }
+      
+      // If this is a request to create a payment intent only
+      if (createIntent) {
+        // Create a payment intent with Stripe
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: finalAmount,
+          currency: "usd",
+          metadata: {
+            projectId: projectId.toString(),
+            userId: req.user.id.toString(),
+            couponCode: couponCode || ""
+          }
+        });
+        
+        return res.json({
+          clientSecret: paymentIntent.client_secret,
+          amount: finalAmount
+        });
+      }
+      
+      // If this is a payment confirmation (not just intent creation)
+      // Create a payment intent with Stripe
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: finalAmount,
+        currency: "usd",
+        metadata: {
+          projectId: projectId.toString(),
+          userId: req.user.id.toString(),
+          couponCode: couponCode || ""
+        },
+        confirm: true,
+        return_url: `${req.headers.origin || "https://app-bundle-maker.replit.app"}`
+      });
+      
+      // Update project with payment intent ID
+      await storage.updateProject(projectId, { 
+        paymentIntentId: paymentIntent.id,
+        paymentAmount: finalAmount
+      });
+      
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        amount: finalAmount
+      });
+    } catch (error) {
+      console.error("Payment intent creation error:", error);
+      res.status(500).json({
+        error: "Failed to create payment intent",
+        message: (error as Error).message
+      });
+    }
+  });
+  
+  // Webhook to handle Stripe payment events
+  app.post("/api/stripe-webhook", async (req: Request, res: Response) => {
+    const signature = req.headers["stripe-signature"] as string;
+    
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      console.warn("Missing Stripe webhook secret. Skipping signature verification.");
+    }
+    
+    let event;
+    
+    try {
+      // Parse the webhook payload and verify signature
+      if (process.env.STRIPE_WEBHOOK_SECRET && signature) {
+        event = stripe.webhooks.constructEvent(
+          req.body,
+          signature,
+          process.env.STRIPE_WEBHOOK_SECRET
+        );
+      } else {
+        // For development, just parse the body
+        event = req.body;
+      }
+      
+      // Handle the event
+      switch (event.type) {
+        case "payment_intent.succeeded":
+          const paymentIntent = event.data.object;
+          const { projectId, userId, couponCode } = paymentIntent.metadata;
+          
+          if (!projectId) {
+            console.error("No project ID in metadata");
+            break;
+          }
+          
+          // Mark project as paid
+          const pId = parseInt(projectId);
+          const now = new Date().toISOString();
+          await storage.markProjectAsPaid(pId, paymentIntent.id);
+          
+          // Track coupon usage if a coupon was used
+          if (couponCode) {
+            const coupon = await storage.getCouponByCode(couponCode);
+            if (coupon) {
+              await storage.incrementCouponUsage(coupon.id);
+              await storage.createCouponUsage({
+                userId: parseInt(userId),
+                couponId: coupon.id,
+                projectId: pId
+              });
+            }
+          }
+          
+          console.log(`Payment for project ${projectId} completed successfully`);
+          break;
+          
+        case "payment_intent.payment_failed":
+          const failedPayment = event.data.object;
+          console.error(`Payment failed for project ${failedPayment.metadata.projectId}`);
+          break;
+        
+        // Subscription related webhooks
+        case "customer.subscription.created":
+          const newSubscription = event.data.object;
+          // Find user with this customer ID
+          console.log(`Subscription created: ${newSubscription.id}`);
+          break;
+          
+        case "customer.subscription.updated":
+          const updatedSubscription = event.data.object;
+          console.log(`Subscription updated: ${updatedSubscription.id}`);
+          
+          // If subscription is canceled or past due, update user status
+          if (updatedSubscription.status === "canceled" || updatedSubscription.status === "unpaid") {
+            // Find the user with this subscription ID
+            // (In a real implementation, you'd fetch from the DB)
+            // For now, we'll just log it
+            console.log(`Subscription ${updatedSubscription.id} is now ${updatedSubscription.status}`);
+          }
+          break;
+          
+        case "customer.subscription.deleted":
+          const deletedSubscription = event.data.object;
+          console.log(`Subscription deleted: ${deletedSubscription.id}`);
+          break;
+          
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+      
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Stripe webhook error:", error);
+      res.status(400).send(`Webhook Error: ${(error as Error).message}`);
+    }
+  });
+  
+  // Validate coupon code
+  app.post("/api/validate-coupon", async (req: Request, res: Response) => {
+    try {
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ error: "Coupon code is required" });
+      }
+      
+      const coupon = await storage.getCouponByCode(code);
+      
+      if (!coupon) {
+        return res.status(404).json({ error: "Coupon not found" });
+      }
+      
+      if (!coupon.isActive) {
+        return res.status(400).json({ error: "Coupon is inactive" });
+      }
+      
+      // Check if coupon has max uses and if it's been reached
+      if (coupon.maxUses && coupon.currentUses !== null && coupon.currentUses >= coupon.maxUses) {
+        return res.status(400).json({ error: "Coupon has reached maximum usage" });
+      }
+      
+      // Check if coupon is expired
+      if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+        return res.status(400).json({ error: "Coupon has expired" });
+      }
+      
+      res.json({
+        valid: true,
+        discountPercent: coupon.discountPercent
+      });
+    } catch (error) {
+      console.error("Coupon validation error:", error);
+      res.status(500).json({
+        error: "Failed to validate coupon",
+        message: (error as Error).message
+      });
+    }
+  });
+  
+  // Update user subscription status
+  app.post("/api/update-subscription-status", async (req: Request, res: Response) => {
+    try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const { status } = req.body;
+      
+      if (!status || !["active", "canceled", "expired"].includes(status)) {
+        return res.status(400).json({ error: "Invalid subscription status" });
+      }
+      
+      // Calculate expiry date (1 year from now for active subscriptions)
+      const expiryDate = status === "active" 
+        ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() 
+        : null;
+      
+      // Update user's subscription status
+      await storage.updateUser(req.user.id, {
+        subscriptionStatus: status,
+        subscriptionExpiry: expiryDate
+      });
+      
+      res.json({
+        success: true,
+        message: `Subscription status updated to ${status}`,
+        expiryDate
+      });
+    } catch (error) {
+      console.error("Subscription status update error:", error);
+      res.status(500).json({
+        error: "Failed to update subscription status",
+        message: (error as Error).message
+      });
+    }
+  });
+  
+  // Create subscription
+  app.post("/api/create-subscription", async (req: Request, res: Response) => {
+    try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const user = req.user;
+      
+      // Check if user already has an active subscription
+      if (user.subscriptionStatus === "active" && user.stripeSubscriptionId) {
+        // Get the subscription from Stripe
+        const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+        
+        if (subscription.status === "active") {
+          return res.status(400).json({ error: "User already has an active subscription" });
+        }
+      }
+      
+      // If user doesn't have email, require it
+      if (!user.email) {
+        return res.status(400).json({ error: "Email is required for subscription" });
+      }
+      
+      // Create or get a customer
+      let customerId = user.stripeCustomerId;
+      
+      if (!customerId) {
+        // Create a new customer
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: user.username
+        });
+        
+        customerId = customer.id;
+        await storage.updateStripeCustomerId(user.id, customerId);
+      }
+      
+      // Create a subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: customerId,
+        items: [
+          {
+            price: process.env.STRIPE_PRICE_ID || 'price_1NwXYmBLGgPFGWZ8e6RvH9X2', // Default price ID for testing
+          },
+        ],
+        payment_behavior: 'default_incomplete',
+        expand: ['latest_invoice.payment_intent'],
+      });
+      
+      // Update user record
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      
+      await storage.updateUserSubscription(
+        user.id, 
+        subscription.id, 
+        oneYearFromNow.toISOString()
+      );
+      
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: (subscription.latest_invoice as any).payment_intent.client_secret,
+      });
+    } catch (error) {
+      console.error("Subscription creation error:", error);
+      res.status(500).json({
+        error: "Failed to create subscription",
+        message: (error as Error).message
       });
     }
   });

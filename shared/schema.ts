@@ -6,11 +6,18 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email"),
+  subscriptionStatus: text("subscription_status").default("free_trial"),
+  subscriptionExpiry: text("subscription_expiry"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  createdAt: text("created_at").notNull().default("NOW()"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  email: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -33,6 +40,12 @@ export const projects = pgTable("projects", {
   pdfPath: text("pdf_path"), // Path to uploaded PDF
   customCodePath: text("custom_code_path"), // Path to custom code
   githubUrl: text("github_url"), // URL to GitHub repository
+  // Payment related fields
+  isPaid: boolean("is_paid").default(false),
+  paymentIntentId: text("payment_intent_id"),
+  couponCode: text("coupon_code"),
+  paymentAmount: integer("payment_amount").default(500), // in cents, default $5.00
+  paidAt: text("paid_at"),
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
@@ -122,3 +135,41 @@ export const customCodeSchema = z.object({
 });
 
 export type CustomCodeData = z.infer<typeof customCodeSchema>;
+
+// Coupon codes schema
+export const coupons = pgTable("coupons", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  discountPercent: integer("discount_percent").notNull(), // 100 for 100% discount
+  isActive: boolean("is_active").notNull().default(true),
+  expiresAt: text("expires_at"), // Optional expiration date
+  maxUses: integer("max_uses"), // Optional max number of uses
+  currentUses: integer("current_uses").default(0),
+  createdAt: text("created_at").notNull().default("NOW()"),
+});
+
+export const insertCouponSchema = createInsertSchema(coupons).omit({
+  id: true,
+  currentUses: true,
+  createdAt: true,
+});
+
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+export type Coupon = typeof coupons.$inferSelect;
+
+// User coupon usage tracking
+export const couponUsage = pgTable("coupon_usage", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  couponId: integer("coupon_id").references(() => coupons.id).notNull(),
+  usedAt: text("used_at").notNull().default("NOW()"),
+  projectId: integer("project_id").references(() => projects.id), // Optional, which project it was used for
+});
+
+export const insertCouponUsageSchema = createInsertSchema(couponUsage).omit({
+  id: true,
+  usedAt: true,
+});
+
+export type InsertCouponUsage = z.infer<typeof insertCouponUsageSchema>;
+export type CouponUsage = typeof couponUsage.$inferSelect;
