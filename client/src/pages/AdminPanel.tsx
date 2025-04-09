@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CouponManager } from "@/components/admin/CouponManager";
+import { SubscriptionPriceManager } from "@/components/admin/SubscriptionPriceManager";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
 
@@ -602,7 +604,7 @@ const AdminPanel = () => {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="homePageTitle">Home Page Title</Label>
-                      <Input id="homePageTitle" defaultValue="Convert Web Content to Mobile Apps" className="mt-2" />
+                      <Input id="homePageTitle" defaultValue="Convert web into Android and iOS apps in minutes" className="mt-2" />
                     </div>
                     
                     <div>
@@ -626,6 +628,11 @@ const AdminPanel = () => {
               </div>
             </CardContent>
           </Card>
+          
+          <div className="grid grid-cols-1 gap-6">
+            <CouponManager />
+            <SubscriptionPriceManager />
+          </div>
         </TabsContent>
         
         <TabsContent value="settings" className="space-y-6">

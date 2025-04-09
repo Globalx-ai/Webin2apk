@@ -105,7 +105,7 @@ export default function AuthPage() {
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
               </div>
-              <p className="text-white">Convert any website URL to Android app</p>
+              <p className="text-white">Convert any website URL to Android and iOS apps</p>
             </div>
             <div className="flex items-center">
               <div className="bg-white bg-opacity-30 p-2 rounded-full mr-3">
@@ -132,7 +132,7 @@ export default function AuthPage() {
         <div className="w-full max-w-md">
           <div className="text-center mb-10 lg:hidden">
             <h1 className="text-3xl font-bold text-gray-900 mb-3">App Bundle Maker</h1>
-            <p className="text-gray-600">Convert web content to Android apps in minutes</p>
+            <p className="text-gray-600">Convert web into Android and iOS apps in minutes</p>
           </div>
 
           <Card>
