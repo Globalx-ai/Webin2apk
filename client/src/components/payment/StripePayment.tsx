@@ -1,168 +1,216 @@
-import { useEffect, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
-import { Button } from "@/components/ui/button";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import React, { useState, useEffect } from 'react';
+import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 
-// Initialize Stripe with the public key from environment variables
+// Make sure to call `loadStripe` outside of a component's render to avoid
+// recreating the `Stripe` object on every render.
+if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
+}
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-interface StripePaymentFormProps {
+interface CheckoutFormProps {
   projectId: number;
   onPaymentSuccess: () => void;
-  onClose: () => void;
+  onPaymentError: (error: string) => void;
 }
 
-function PaymentForm({ projectId, onPaymentSuccess, onClose }: StripePaymentFormProps) {
+const CheckoutForm = ({ projectId, onPaymentSuccess, onPaymentError }: CheckoutFormProps) => {
   const stripe = useStripe();
   const elements = useElements();
-  const [processing, setProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!stripe || !elements) {
       return;
     }
 
-    setProcessing(true);
+    setIsLoading(true);
 
-    // Use the stripe.confirmPayment method to complete the payment
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin,
-      },
-      redirect: "if_required",
-    });
-
-    if (error) {
-      toast({
-        title: "Payment Failed",
-        description: error.message || "Something went wrong with your payment.",
-        variant: "destructive",
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin,
+        },
+        redirect: 'if_required',
       });
-      setProcessing(false);
-    } else {
-      // Payment succeeded, update the project status
-      try {
-        await apiRequest("POST", `/api/projects/${projectId}/payment`, {
-          useSubscription: false
-        });
-        
-        // Invalidate queries to refresh the data
-        queryClient.invalidateQueries({queryKey: [`/api/projects/${projectId}`]});
-        
+
+      if (error) {
+        onPaymentError(error.message || "An unexpected error occurred");
         toast({
-          title: "Payment Successful",
-          description: "Your payment was processed and your app is being built.",
+          title: "Payment Failed",
+          description: error.message || "Payment could not be processed",
+          variant: "destructive",
+        });
+      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // Update project as paid
+        await apiRequest("POST", `/api/projects/${projectId}/payment`, {
+          paymentIntentId: paymentIntent.id
         });
         
         onPaymentSuccess();
-        onClose();
-      } catch (paymentError) {
         toast({
-          title: "Error",
-          description: "Payment succeeded but there was an issue updating the project status.",
-          variant: "destructive",
+          title: "Payment Successful",
+          description: "Your app bundle is ready to download",
         });
-        console.error("Error updating project status:", paymentError);
       }
+    } catch (error: any) {
+      onPaymentError(error.message || "An unexpected error occurred");
+      toast({
+        title: "Payment Error",
+        description: error.message || "An unexpected error occurred during payment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement />
-      <div className="flex justify-between">
-        <Button 
-          variant="outline" 
-          type="button" 
-          onClick={onClose}
-          disabled={processing}
-        >
-          Cancel
-        </Button>
-        <Button 
-          type="submit" 
-          disabled={!stripe || processing}
-        >
-          {processing ? "Processing..." : "Pay $5"}
-        </Button>
+      
+      <div className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-md text-sm text-blue-700">
+        <p className="flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          Your card will be charged $5.00 for this app bundle
+        </p>
       </div>
+      
+      <Button 
+        type="submit" 
+        disabled={!stripe || isLoading} 
+        className="w-full"
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          "Pay Now & Download Bundle"
+        )}
+      </Button>
     </form>
   );
-}
+};
 
 interface StripePaymentProps {
   projectId: number;
-  onPaymentSuccess: () => void;
-  onClose: () => void;
+  onPaymentComplete: () => void;
 }
 
-export function StripePayment({ projectId, onPaymentSuccess, onClose }: StripePaymentProps) {
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
+export default function StripePayment({ projectId, onPaymentComplete }: StripePaymentProps) {
+  const [clientSecret, setClientSecret] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    async function createPaymentIntent() {
+    // Create PaymentIntent as soon as the page loads
+    const createPaymentIntent = async () => {
       try {
-        const response = await apiRequest("POST", `/api/projects/${projectId}/payment`, {
-          createIntent: true,
-          amount: 500, // $5.00 in cents
+        setLoading(true);
+        setError(null);
+        
+        const response = await apiRequest("POST", `/api/projects/${projectId}/payment`, { 
+          amount: 5.00  // $5.00 per bundle
         });
+        
+        if (!response.ok) {
+          throw new Error("Failed to create payment intent");
+        }
         
         const data = await response.json();
         setClientSecret(data.clientSecret);
-      } catch (error) {
+      } catch (error: any) {
+        setError(error.message || "Failed to create payment intent");
         toast({
-          title: "Error",
-          description: "Failed to initialize payment. Please try again.",
+          title: "Payment Setup Error",
+          description: error.message || "Failed to initialize payment",
           variant: "destructive",
         });
-        console.error("Payment initialization error:", error);
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     createPaymentIntent();
   }, [projectId, toast]);
 
-  if (loading || !clientSecret) {
+  const handlePaymentSuccess = () => {
+    setPaymentSuccess(true);
+    onPaymentComplete();
+  };
+
+  const handlePaymentError = (errorMessage: string) => {
+    setError(errorMessage);
+  };
+
+  if (loading) {
     return (
-      <div className="flex justify-center items-center py-10">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex flex-col items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-center text-gray-600">Setting up secure payment...</p>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-red-800 mb-2">Payment Setup Failed</h3>
+        <p className="text-red-600 mb-4">{error}</p>
+        <Button
+          variant="outline"
+          onClick={() => window.location.reload()}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (paymentSuccess) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+        <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-green-800 mb-2">Payment Successful!</h3>
+        <p className="text-green-600 mb-4">Your app bundle is ready to download</p>
+        <Button
+          onClick={() => window.open(`/api/projects/${projectId}/download`, "_blank")}
+        >
+          Download App Bundle
+        </Button>
+      </div>
+    );
+  }
+
+  // Make SURE to wrap the form in <Elements> which provides the stripe context.
   return (
-    <Elements 
-      stripe={stripePromise} 
-      options={{ 
-        clientSecret,
-        appearance: {
-          theme: 'stripe',
-          variables: {
-            colorPrimary: '#7c3aed',
-          },
-        } 
-      }}
-    >
-      <PaymentForm 
-        projectId={projectId}
-        onPaymentSuccess={onPaymentSuccess}
-        onClose={onClose}
-      />
-    </Elements>
+    <div className="border rounded-lg p-6 bg-white shadow-sm">
+      <h3 className="text-xl font-bold mb-4">Complete Payment</h3>
+      <p className="text-gray-600 mb-6">Pay securely to download your app bundle</p>
+      
+      {clientSecret && (
+        <Elements stripe={stripePromise} options={{ clientSecret }}>
+          <CheckoutForm 
+            projectId={projectId}
+            onPaymentSuccess={handlePaymentSuccess}
+            onPaymentError={handlePaymentError}
+          />
+        </Elements>
+      )}
+    </div>
   );
 }

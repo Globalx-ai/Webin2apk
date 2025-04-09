@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Tempo</string>
-    <string name="app_url">https://www.tempo.new/</string>
+    <string name="app_name">Networthcalc</string>
+    <string name="app_url">https://networthcalc.netlify.app/</string>
 </resources>

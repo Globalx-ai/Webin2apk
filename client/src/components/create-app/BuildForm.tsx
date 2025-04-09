@@ -11,13 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GitHubIntegration } from "@/components/github/GitHubIntegration";
+import StripePayment from "@/components/payment/StripePayment";
 
 interface BuildFormProps {
   projectId: number;
   onBack: () => void;
 }
 
-type BuildStatus = "idle" | "building" | "completed" | "failed";
+type BuildStatus = "idle" | "building" | "completed" | "failed" | "payment";
 
 interface FeatureOption {
   id: string;
@@ -126,6 +127,7 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
   const [selectedTab, setSelectedTab] = useState<string>("features");
   const [targetStores, setTargetStores] = useState<string[]>(["google_play", "amazon"]);
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(FEATURES.filter(f => f.isDefault).map(f => f.id));
+  const [isPaid, setIsPaid] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -205,11 +207,13 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
       setApkUrl(data.apk.downloadUrl);
       
       setProgress(100);
-      setBuildStatus("completed");
+      
+      // Set to payment status instead of completed
+      setBuildStatus("payment");
       
       toast({
         title: "Success",
-        description: "APK built successfully!",
+        description: "APK built successfully! Please complete payment to download.",
       });
     } catch (error) {
       setError((error as Error).message || "Failed to build APK");
@@ -224,11 +228,36 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
   };
 
   const downloadApk = () => {
+    if (!isPaid) {
+      toast({
+        title: "Payment Required",
+        description: "Please complete payment before downloading your app bundle.",
+        variant: "destructive",
+      });
+      return;
+    }
     window.location.href = `/api/projects/${projectId}/download`;
   };
   
   const downloadAab = () => {
+    if (!isPaid) {
+      toast({
+        title: "Payment Required",
+        description: "Please complete payment before downloading your app bundle.",
+        variant: "destructive",
+      });
+      return;
+    }
     window.location.href = `/api/projects/${projectId}/bundle`;
+  };
+  
+  const handlePaymentComplete = () => {
+    setIsPaid(true);
+    setBuildStatus("completed");
+    toast({
+      title: "Payment Successful",
+      description: "Your app bundle is now available for download!",
+    });
   };
 
   return (
@@ -402,108 +431,116 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
           </div>
         )}
         
+        {/* Payment State - New addition */}
+        {buildStatus === "payment" && (
+          <div className="max-w-md mx-auto py-6">
+            <Alert className="mb-6" variant="default">
+              <AlertTitle className="font-semibold">App Build Complete!</AlertTitle>
+              <AlertDescription>
+                Your app has been built successfully. Please complete payment to download the app bundles.
+              </AlertDescription>
+            </Alert>
+            
+            <StripePayment 
+              projectId={projectId}
+              onPaymentComplete={handlePaymentComplete}
+            />
+          </div>
+        )}
+        
         {buildStatus === "completed" && (
-          <div className="text-center py-6">
-            <div className="mb-6">
-              <span className="material-icons text-6xl text-green-500">check_circle</span>
-            </div>
-            <h4 className="text-lg font-medium mb-2">Build Successful!</h4>
-            <p className="text-gray-600 mb-6">
-              Your app has been built successfully and is ready for download.
-            </p>
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button 
-                  onClick={downloadApk}
-                  className="bg-green-600 hover:bg-green-700 text-white px-8"
+          <div className="max-w-md mx-auto py-6">
+            <Alert className="mb-6" variant="success">
+              <AlertTitle className="font-semibold">Build Successful!</AlertTitle>
+              <AlertDescription>
+                Your app has been built successfully. You can now download the APK file and/or the AAB bundle.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex flex-col items-center">
+              <div className="mb-6">
+                <span className="material-icons text-6xl text-green-600">check_circle</span>
+              </div>
+              <h4 className="text-lg font-medium mb-2">App Build Completed</h4>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Your app has been built successfully and is ready for deployment.
+              </p>
+              
+              <div className="flex flex-wrap gap-4 justify-center w-full">
+                <Button
+                  variant="outline"
                   size="lg"
+                  onClick={downloadApk}
+                  className="flex items-center"
                 >
                   <span className="material-icons mr-2">android</span>
                   Download APK
                 </Button>
                 
-                {targetStores.includes("google_play") && (
-                  <Button 
-                    onClick={downloadAab}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8"
-                    size="lg"
-                  >
-                    <span className="material-icons mr-2">store</span>
-                    Download AAB Bundle
-                  </Button>
-                )}
-              </div>
-              
-              <div className="pt-2 px-4 text-xs text-gray-500 max-w-md mx-auto">
-                <p className="mb-2">• APK file: Direct installation on Android devices</p>
-                {targetStores.includes("google_play") && (
-                  <p>• AAB bundle: For publishing on Google Play Store</p>
-                )}
-              </div>
-              
-              <div className="pt-4">
-                <Button 
-                  onClick={startBuild}
-                  variant="outline"
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={downloadAab}
+                  className="flex items-center"
                 >
-                  <span className="material-icons mr-2">replay</span>
-                  Rebuild with Different Settings
+                  <span className="material-icons mr-2">view_in_ar</span>
+                  Download AAB Bundle
                 </Button>
-              </div>
-              
-              <div className="mt-8 pt-8 border-t border-gray-200">
-                <h5 className="text-lg font-medium mb-4">Save to GitHub</h5>
-                <p className="text-gray-600 mb-6 max-w-md mx-auto text-sm">
-                  Save your app source code to GitHub and share it with others or continue development.
-                </p>
-                <div className="max-w-md mx-auto">
-                  <GitHubIntegration 
-                    projectId={projectId} 
-                    onSuccess={(repoUrl) => {
-                      toast({
-                        title: "GitHub Repository Created",
-                        description: `Your app has been successfully pushed to GitHub`,
-                      });
-                    }}
-                  />
-                </div>
               </div>
             </div>
           </div>
         )}
         
         {buildStatus === "failed" && (
-          <div className="py-6">
-            <Alert variant="destructive" className="mb-6">
-              <span className="material-icons mr-2">error</span>
-              <AlertTitle>Build Failed</AlertTitle>
+          <div className="max-w-md mx-auto py-6">
+            <Alert className="mb-6" variant="destructive">
+              <AlertTitle className="font-semibold">Build Failed</AlertTitle>
               <AlertDescription>
-                {error || "There was an error building your APK. Please try again."}
+                {error || "An error occurred during the build process. Please try again."}
               </AlertDescription>
             </Alert>
             
-            <div className="text-center space-y-4">
-              <Button 
-                onClick={startBuild}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8"
-                size="lg"
-              >
-                <span className="material-icons mr-2">replay</span>
-                Try Again
-              </Button>
+            <div className="flex flex-col items-center">
+              <div className="mb-6">
+                <span className="material-icons text-6xl text-red-600">error</span>
+              </div>
+              <h4 className="text-lg font-medium mb-2">Failed to Build App</h4>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                We encountered an error while building your app. Please try again or modify your app settings.
+              </p>
               
-              <div>
+              <div className="flex gap-4">
                 <Button 
-                  onClick={onBack}
                   variant="outline"
+                  onClick={onBack}
                 >
-                  <span className="material-icons mr-2">arrow_backward</span>
-                  Back to Configuration
+                  <span className="material-icons mr-2">settings</span>
+                  Change Settings
+                </Button>
+                
+                <Button 
+                  variant="default"
+                  onClick={() => setBuildStatus("idle")}
+                >
+                  <span className="material-icons mr-2">refresh</span>
+                  Try Again
                 </Button>
               </div>
             </div>
           </div>
         )}
+        
+        {/* Back button for all states */}
+        <div className="mt-8 flex justify-between">
+          <Button 
+            variant="ghost" 
+            onClick={onBack}
+            disabled={buildStatus === "building"}
+          >
+            <span className="material-icons mr-2">arrow_back</span>
+            Back to Configuration
+          </Button>
+        </div>
       </div>
     </div>
   );
