@@ -1,6 +1,6 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -12,6 +12,22 @@ declare global {
   namespace Express {
     interface User extends SelectUser {}
   }
+}
+
+// Middleware to check if user is authenticated
+export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ message: "Not authenticated" });
+}
+
+// Middleware to check if user is an admin
+export function isAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated() && req.user.role === "admin") {
+    return next();
+  }
+  res.status(403).json({ message: "Access denied: Admin privileges required" });
 }
 
 const scryptAsync = promisify(scrypt);
@@ -78,9 +94,17 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: "Username already exists" });
       }
 
+      // Check if this is the first user (will be admin)
+      const userCount = await storage.getTotalUsers();
+      const isFirstUser = userCount === 0;
+      const role = isFirstUser ? "admin" : (req.body.role || "user");
+      
       const user = await storage.createUser({
         ...req.body,
         password: await hashPassword(req.body.password),
+        role,
+        lastLogin: new Date().toISOString(),
+        loginCount: 1,
       });
 
       req.login(user, (err) => {

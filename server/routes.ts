@@ -8,7 +8,7 @@ import { generateAppIcon } from "./utils/imageProcessor";
 import { generateAndroidManifest } from "./utils/manifestGenerator";
 import { generateKeystore } from "./utils/keystore";
 import { fetchCodeWithAI, improveCodeWithAI } from "./services/aiCodeFetcher";
-import { setupAuth } from "./auth";
+import { setupAuth, isAuthenticated, isAdmin } from "./auth";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
@@ -773,7 +773,7 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
   });
   
   // GitHub integration endpoint
-  app.post("/api/projects/:id/github", async (req: Request, res: Response) => {
+  app.post("/api/projects/:id/github", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
       const { githubToken, repoName, description, isPrivate } = req.body;
@@ -791,6 +791,14 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
         return res.status(404).json({ success: false, message: "Project not found" });
       }
       
+      // Check if the project belongs to the current user
+      if (project.userId !== req.user.id) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "You don't have permission to access this project" 
+        });
+      }
+      
       // In a real implementation, this would:
       // 1. Validate the GitHub token
       // 2. Create a new repository with the given name
@@ -798,14 +806,15 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       // 4. Update the project with the repository URL
       
       // For now, simulate success
-      const repoUrl = `https://github.com/user/${repoName}`;
+      const repoUrl = `https://github.com/${req.user.username}/${repoName}`;
+      
+      // Store the GitHub token with the user for future use
+      await storage.updateUserGithubToken(req.user.id, githubToken, req.user.username);
       
       // Update the project with the repository URL
-      // Using 'as any' to handle the updated schema
       await storage.updateProject(projectId, {
-        ...project,
         githubUrl: repoUrl
-      } as any);
+      });
       
       res.json({
         success: true,
@@ -1159,16 +1168,7 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
   });
   
   // Admin impersonation routes
-  app.post("/api/admin/impersonate/:userId", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    
-    // Check if user is admin (in a real app, this would use a role system)
-    if (req.user?.username !== "admin") {
-      return res.status(403).json({ error: "Not authorized" });
-    }
-    
+  app.post("/api/admin/impersonate/:userId", isAdmin, async (req: Request, res: Response) => {
     const { userId } = req.params;
     const userIdNumber = parseInt(userId, 10);
     
@@ -1207,11 +1207,7 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
   });
   
   // Return to admin account after impersonation
-  app.post("/api/admin/end-impersonation", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    
+  app.post("/api/admin/end-impersonation", isAuthenticated, async (req: Request, res: Response) => {
     const { adminToken } = req.body;
     
     if (!adminToken) {

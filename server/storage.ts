@@ -16,6 +16,8 @@ export interface IStorage {
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
   updateStripeCustomerId(userId: number, customerId: string): Promise<User | undefined>;
   updateUserSubscription(userId: number, subscriptionId: string, expiryDate: string): Promise<User | undefined>;
+  getTotalUsers(): Promise<number>;
+  getAllUsers(): Promise<User[]>;
   
   // Project methods
   getProject(id: number): Promise<Project | undefined>;
@@ -39,6 +41,9 @@ export interface IStorage {
   // Coupon usage methods
   createCouponUsage(usage: InsertCouponUsage): Promise<CouponUsage>;
   getCouponUsagesByUser(userId: number): Promise<CouponUsage[]>;
+  
+  // GitHub integration
+  updateUserGithubToken(userId: number, token: string, username: string): Promise<User | undefined>;
   
   // Session store for auth
   sessionStore: session.Store;
@@ -305,6 +310,30 @@ export class MemStorage implements IStorage {
     return Array.from(this.couponUsages.values()).filter(
       (usage) => usage.userId === userId
     );
+  }
+
+  // Get total number of users
+  async getTotalUsers(): Promise<number> {
+    return this.users.size;
+  }
+
+  // Get all users
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  // Update GitHub tokens for a user
+  async updateUserGithubToken(userId: number, token: string, username: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { 
+      ...user, 
+      githubToken: token,
+      githubUsername: username
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
 }
 

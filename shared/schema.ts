@@ -20,6 +20,12 @@ export const users = pgTable("users", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   createdAt: text("created_at").notNull().default("NOW()"),
+  role: text("role").default("user"),
+  lastLogin: text("last_login"),
+  loginCount: integer("login_count").default(0),
+  ipAddress: text("ip_address"),
+  githubToken: text("github_token"),
+  githubUsername: text("github_username"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
