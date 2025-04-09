@@ -19,6 +19,9 @@ export function SigningCertificates() {
   const [profileFile, setProfileFile] = useState<File | null>(null);
   const [p12File, setP12File] = useState<File | null>(null);
   const [p12Password, setP12Password] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showKeystorePassword, setShowKeystorePassword] = useState(false);
+  const [showKeyPassword, setShowKeyPassword] = useState(false);
 
   const handleCertificateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -63,7 +66,22 @@ export function SigningCertificates() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="keystorePassword">Keystore Password</Label>
-                  <Input id="keystorePassword" type="password" placeholder="Enter keystore password" />
+                  <div className="relative">
+                    <Input 
+                      id="keystorePassword" 
+                      type={showKeystorePassword ? "text" : "password"} 
+                      placeholder="Enter keystore password" 
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowKeystorePassword(!showKeystorePassword)}
+                    >
+                      <span className="material-icons text-sm">
+                        {showKeystorePassword ? "visibility_off" : "visibility"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="keyAlias">Key Alias</Label>
@@ -74,7 +92,22 @@ export function SigningCertificates() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="keyPassword">Key Password</Label>
-                  <Input id="keyPassword" type="password" placeholder="Enter key password" />
+                  <div className="relative">
+                    <Input 
+                      id="keyPassword" 
+                      type={showKeyPassword ? "text" : "password"} 
+                      placeholder="Enter key password" 
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowKeyPassword(!showKeyPassword)}
+                    >
+                      <span className="material-icons text-sm">
+                        {showKeyPassword ? "visibility_off" : "visibility"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="validityYears">Validity Years</Label>
@@ -160,13 +193,24 @@ export function SigningCertificates() {
               
               <div className="space-y-2">
                 <Label htmlFor="p12Password">P12 Password</Label>
-                <Input 
-                  id="p12Password" 
-                  type="password" 
-                  placeholder="Enter P12 password"
-                  value={p12Password}
-                  onChange={(e) => setP12Password(e.target.value)}
-                />
+                <div className="relative">
+                  <Input 
+                    id="p12Password" 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Enter P12 password"
+                    value={p12Password}
+                    onChange={(e) => setP12Password(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    <span className="material-icons text-sm">
+                      {showPassword ? "visibility_off" : "visibility"}
+                    </span>
+                  </button>
+                </div>
               </div>
               
               <Button 

@@ -122,17 +122,51 @@ export default function StripePayment({ projectId, onPaymentComplete }: StripePa
         setLoading(true);
         setError(null);
         
-        const response = await apiRequest("POST", `/api/projects/${projectId}/payment`, { 
-          amount: 5.00  // $5.00 per bundle
-        });
+        console.log("Creating payment intent for project ID:", projectId);
+        console.log("Stripe public key available:", !!import.meta.env.VITE_STRIPE_PUBLIC_KEY);
         
-        if (!response.ok) {
-          throw new Error("Failed to create payment intent");
+        // Verify we have a valid project ID
+        if (!projectId || isNaN(projectId)) {
+          throw new Error(`Invalid project ID: ${projectId}`);
         }
         
-        const data = await response.json();
-        setClientSecret(data.clientSecret);
+        const requestData = { 
+          amount: 5.00,  // $5.00 per bundle
+          createIntent: true // Explicitly request intent creation only
+        };
+        console.log("Payment request data:", requestData);
+        
+        const response = await apiRequest("POST", `/api/projects/${projectId}/payment`, requestData);
+        
+        console.log("Payment intent response status:", response.status);
+        
+        if (!response.ok) {
+          let errorMessage = "Failed to create payment intent";
+          try {
+            const errorData = await response.json();
+            console.error("Payment intent creation failed:", errorData);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (jsonError) {
+            console.error("Could not parse error response:", jsonError);
+          }
+          throw new Error(errorMessage);
+        }
+        
+        try {
+          const data = await response.json();
+          console.log("Payment intent created, client secret received:", !!data.clientSecret);
+          
+          if (!data.clientSecret) {
+            throw new Error("No client secret returned from server");
+          }
+          
+          setClientSecret(data.clientSecret);
+        } catch (jsonError) {
+          console.error("Error parsing JSON response:", jsonError);
+          throw new Error("Invalid response format from server");
+        }
       } catch (error: any) {
+        console.error("Payment setup error:", error);
         setError(error.message || "Failed to create payment intent");
         toast({
           title: "Payment Setup Error",

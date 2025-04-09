@@ -191,22 +191,36 @@ const ConfigureForm = ({ projectId, onNext, onBack }: ConfigureFormProps) => {
                     <FormField
                       control={form.control}
                       name="keystorePassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Key Password</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="password" 
-                              placeholder="Enter secure password" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Secure password for the keystore
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const [showPassword, setShowPassword] = useState(false);
+                        return (
+                          <FormItem>
+                            <FormLabel>Key Password</FormLabel>
+                            <div className="relative">
+                              <FormControl>
+                                <Input 
+                                  type={showPassword ? "text" : "password"} 
+                                  placeholder="Enter secure password" 
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <button
+                                type="button"
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                onClick={() => setShowPassword(!showPassword)}
+                              >
+                                <span className="material-icons text-sm">
+                                  {showPassword ? "visibility_off" : "visibility"}
+                                </span>
+                              </button>
+                            </div>
+                            <FormDescription>
+                              Secure password for the keystore
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )
+                      }}
                     />
                   </div>
                 </div>

@@ -53,9 +53,21 @@ const upload = multer({ storage: storage_multer });
 if (!process.env.STRIPE_SECRET_KEY) {
   console.error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16' as any,
-});
+// Initialize Stripe
+let stripe: Stripe;
+try {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error("WARNING: STRIPE_SECRET_KEY environment variable is not set. Payment features will not work properly.");
+  }
+  
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+    apiVersion: '2023-10-16' as any,
+  });
+  console.log("Stripe client initialized successfully");
+} catch (error) {
+  console.error("Failed to initialize Stripe client:", error);
+  stripe = new Stripe('dummy_key_for_fallback', { apiVersion: '2023-10-16' as any });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -839,33 +851,47 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
   // Create a payment intent for a project
   app.post("/api/projects/:id/payment", async (req: Request, res: Response) => {
     try {
+      console.log("Payment endpoint called for project:", req.params.id);
+      console.log("Request body:", req.body);
+      
       // Check if user is authenticated
       if (!req.isAuthenticated()) {
+        console.log("Payment error: User not authenticated");
         return res.status(401).json({ error: "Authentication required" });
       }
       
       const projectId = parseInt(req.params.id);
       if (isNaN(projectId)) {
+        console.log("Payment error: Invalid project ID", req.params.id);
         return res.status(400).json({ error: "Invalid project ID" });
       }
       
       const project = await storage.getProject(projectId);
       if (!project) {
+        console.log("Payment error: Project not found", projectId);
         return res.status(404).json({ error: "Project not found" });
       }
       
+      console.log("Processing payment for project:", project.name);
+      
       // Check if the project belongs to the current user
       if (project.userId !== req.user.id) {
+        console.log("Payment error: Permission denied", { 
+          projectUserId: project.userId, 
+          requestUserId: req.user.id 
+        });
         return res.status(403).json({ error: "You don't have permission to access this project" });
       }
       
       // Check if project is already paid
       if (project.isPaid) {
+        console.log("Payment error: Project already paid", projectId);
         return res.status(400).json({ error: "Project already paid for" });
       }
       
       // Check if creating an intent or processing a payment
       const { createIntent, useSubscription, couponCode, amount } = req.body;
+      console.log("Payment options:", { createIntent, useSubscription, couponCode, amount });
 
       // If user has active subscription, allow them to build without payment
       if (useSubscription) {
@@ -942,21 +968,32 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       
       // If this is a request to create a payment intent only
       if (createIntent) {
-        // Create a payment intent with Stripe
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: finalAmount,
-          currency: "usd",
-          metadata: {
-            projectId: projectId.toString(),
-            userId: req.user.id.toString(),
-            couponCode: couponCode || ""
-          }
-        });
-        
-        return res.json({
-          clientSecret: paymentIntent.client_secret,
-          amount: finalAmount
-        });
+        console.log("Creating payment intent for amount:", finalAmount);
+        try {
+          // Create a payment intent with Stripe
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: finalAmount,
+            currency: "usd",
+            metadata: {
+              projectId: projectId.toString(),
+              userId: req.user.id.toString(),
+              couponCode: couponCode || ""
+            }
+          });
+          
+          console.log("Payment intent created successfully:", {
+            id: paymentIntent.id,
+            hasClientSecret: !!paymentIntent.client_secret
+          });
+          
+          return res.json({
+            clientSecret: paymentIntent.client_secret,
+            amount: finalAmount
+          });
+        } catch (stripeError) {
+          console.error("Stripe error creating payment intent:", stripeError);
+          throw stripeError;
+        }
       }
       
       // If this is a payment confirmation (not just intent creation)
