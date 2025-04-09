@@ -974,6 +974,8 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
           const paymentIntent = await stripe.paymentIntents.create({
             amount: finalAmount,
             currency: "usd",
+            payment_method_types: ['card'], // Explicitly specify payment method types
+            automatic_payment_methods: { enabled: true }, // Enable automatic payment methods as fallback
             metadata: {
               projectId: projectId.toString(),
               userId: req.user.id.toString(),
@@ -1001,6 +1003,8 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       const paymentIntent = await stripe.paymentIntents.create({
         amount: finalAmount,
         currency: "usd",
+        payment_method_types: ['card'], // Explicitly specify payment method types
+        automatic_payment_methods: { enabled: true }, // Enable automatic payment methods as fallback
         metadata: {
           projectId: projectId.toString(),
           userId: req.user.id.toString(),
@@ -1334,6 +1338,10 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
           },
         ],
         payment_behavior: 'default_incomplete',
+        payment_settings: {
+          payment_method_types: ['card'],
+          save_default_payment_method: 'on_subscription'
+        },
         expand: ['latest_invoice.payment_intent'],
       });
       
