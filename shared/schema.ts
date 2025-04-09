@@ -50,6 +50,8 @@ export const projects = pgTable("projects", {
   createdAt: text("created_at").notNull().default("NOW()"),
   status: text("status").notNull().default("draft"),
   apkDownloadUrl: text("apk_download_url"),
+  aabDownloadUrl: text("aab_download_url"),
+  ipaDownloadUrl: text("ipa_download_url"),
   iconPath: text("icon_path"),
   sourceType: text("source_type").notNull().default("website"), // website, html, pdf, code
   htmlContent: text("html_content"), // For direct HTML content
@@ -69,6 +71,8 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   createdAt: true,
   status: true,
   apkDownloadUrl: true,
+  aabDownloadUrl: true,
+  ipaDownloadUrl: true,
   iconPath: true,
 });
 

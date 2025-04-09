@@ -210,12 +210,14 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
       
       setProgress(100);
       
-      // Set to payment status instead of completed
-      setBuildStatus("payment");
+      // Set to completed status (bypassing payment)
+      setBuildStatus("completed");
+      // Auto-set isPaid to true to enable downloads
+      setIsPaid(true);
       
       toast({
         title: "Success",
-        description: "APK built successfully! Please complete payment to download.",
+        description: "APK built successfully! You can download your app bundle now.",
       });
     } catch (error) {
       setError((error as Error).message || "Failed to build APK");
@@ -230,35 +232,56 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
   };
 
   const downloadApk = () => {
-    if (!isPaid) {
-      toast({
-        title: "Payment Required",
-        description: "Please complete payment before downloading your app bundle.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Payment check temporarily disabled
+    // if (!isPaid) {
+    //   toast({
+    //     title: "Payment Required",
+    //     description: "Please complete payment before downloading your app bundle.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
     window.location.href = `/api/projects/${projectId}/download`;
   };
   
   const downloadAab = () => {
-    if (!isPaid) {
-      toast({
-        title: "Payment Required",
-        description: "Please complete payment before downloading your app bundle.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Payment check temporarily disabled
+    // if (!isPaid) {
+    //   toast({
+    //     title: "Payment Required",
+    //     description: "Please complete payment before downloading your app bundle.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
     window.location.href = `/api/projects/${projectId}/bundle`;
   };
   
+  const downloadIpa = () => {
+    // Payment check temporarily disabled
+    // if (!isPaid) {
+    //   toast({
+    //     title: "Payment Required",
+    //     description: "Please complete payment before downloading your iOS bundle.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
+    toast({
+      title: "iOS Bundle",
+      description: "Downloading iOS IPA bundle...",
+    });
+    // Use the same endpoint for now or create a specific iOS endpoint
+    window.location.href = `/api/projects/${projectId}/ios-bundle`;
+  };
+  
   const handlePaymentComplete = () => {
+    // Auto-mark as paid since payment is disabled
     setIsPaid(true);
     setBuildStatus("completed");
     toast({
-      title: "Payment Successful",
-      description: "Your app bundle is now available for download!",
+      title: "Build Completed",
+      description: "Your app bundles (Android APK/AAB and iOS IPA) are now available for download!",
     });
   };
 
@@ -391,7 +414,7 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
               </div>
               <h4 className="text-lg font-medium mb-2">Building Your App</h4>
               <p className="text-gray-600 mb-4">
-                This may take a few minutes. Please don't close this window.
+                Generating Android and iOS app bundles. This may take a few minutes. Please don't close this window.
               </p>
             </div>
             
@@ -400,31 +423,43 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
             
             <div className="mt-6 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm">Generating Android manifest</span>
-                <Badge variant={progress >= 20 ? "default" : "outline"}>
-                  {progress >= 20 ? "Done" : "Pending"}
+                <span className="text-sm">Generating app manifests</span>
+                <Badge variant={progress >= 15 ? "default" : "outline"}>
+                  {progress >= 15 ? "Done" : "Pending"}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Processing app icons</span>
-                <Badge variant={progress >= 40 ? "default" : "outline"}>
-                  {progress >= 40 ? "Done" : "Pending"}
+                <Badge variant={progress >= 30 ? "default" : "outline"}>
+                  {progress >= 30 ? "Done" : "Pending"}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm">Creating signing key</span>
+                <span className="text-sm">Creating signing keys</span>
+                <Badge variant={progress >= 45 ? "default" : "outline"}>
+                  {progress >= 45 ? "Done" : "Pending"}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Packaging WebView for Android</span>
                 <Badge variant={progress >= 60 ? "default" : "outline"}>
                   {progress >= 60 ? "Done" : "Pending"}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm">Packaging WebView</span>
-                <Badge variant={progress >= 80 ? "default" : "outline"}>
-                  {progress >= 80 ? "Done" : "Pending"}
+                <span className="text-sm">Finalizing Android APK/AAB</span>
+                <Badge variant={progress >= 75 ? "default" : "outline"}>
+                  {progress >= 75 ? "Done" : "Pending"}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm">Finalizing APK</span>
+                <span className="text-sm">Packaging WebView for iOS</span>
+                <Badge variant={progress >= 90 ? "default" : "outline"}>
+                  {progress >= 90 ? "Done" : "Pending"}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Finalizing iOS IPA bundle</span>
                 <Badge variant={progress >= 100 ? "default" : "outline"}>
                   {progress >= 100 ? "Done" : "Pending"}
                 </Badge>
@@ -433,20 +468,33 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
           </div>
         )}
         
-        {/* Payment State - New addition */}
+        {/* Payment State - Temporarily disabled */}
         {buildStatus === "payment" && (
           <div className="max-w-md mx-auto py-6">
             <Alert className="mb-6" variant="default">
               <AlertTitle className="font-semibold">App Build Complete!</AlertTitle>
               <AlertDescription>
-                Your app has been built successfully. Please complete payment to download the app bundles.
+                Your app has been built successfully! You can download your app bundle now.
               </AlertDescription>
             </Alert>
             
-            <StripePayment 
-              projectId={projectId}
-              onPaymentComplete={handlePaymentComplete}
-            />
+            {/* Payment temporarily disabled - direct download enabled */}
+            <div className="text-center p-4 bg-blue-50 rounded-lg mb-4">
+              <div className="text-sm text-blue-700 mb-2">
+                <span className="material-icons text-blue-600 align-middle mr-1">info</span>
+                Payment requirement has been temporarily disabled
+              </div>
+              <p className="text-xs text-blue-600 mb-4">
+                You can download all application bundles (APK, AAB, IPA) without payment
+              </p>
+              <Button 
+                variant="default" 
+                className="w-full" 
+                onClick={handlePaymentComplete}
+              >
+                Continue to Download
+              </Button>
+            </div>
           </div>
         )}
         
@@ -455,7 +503,7 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
             <Alert className="mb-6 border-green-500 bg-green-50 text-green-800">
               <AlertTitle className="font-semibold">Build Successful!</AlertTitle>
               <AlertDescription>
-                Your app has been built successfully. You can now download the APK file and/or the AAB bundle.
+                Your app has been built successfully. You can now download Android (APK/AAB) and iOS (IPA) bundles without payment.
               </AlertDescription>
             </Alert>
             
@@ -487,6 +535,16 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
                 >
                   <span className="material-icons mr-2">view_in_ar</span>
                   Download AAB Bundle
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={downloadIpa}
+                  className="flex items-center"
+                >
+                  <span className="material-icons mr-2">phone_iphone</span>
+                  Download iOS IPA
                 </Button>
 
                 <Button
