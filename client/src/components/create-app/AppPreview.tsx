@@ -6,8 +6,12 @@ interface AppPreviewProps {
   url: string | undefined;
   packageName: string;
   htmlContent?: string;
-  sourceType?: "website" | "html" | "pdf";
+  sourceType?: "website" | "html" | "pdf" | "code";
   pdfFileName?: string;
+  showHeaderAppName?: boolean;
+  showUrlBar?: boolean;
+  previewResolution?: "phone" | "tablet" | "desktop" | "auto";
+  platforms?: Array<"android" | "ios">;
 }
 
 // Using memo to prevent excessive re-renders
@@ -17,7 +21,11 @@ const AppPreview = memo(({
   packageName, 
   htmlContent, 
   sourceType = "website",
-  pdfFileName
+  pdfFileName,
+  showHeaderAppName = true,
+  showUrlBar = true,
+  previewResolution = "phone",
+  platforms = ["android"]
 }: AppPreviewProps) => {
   // Use a static time instead of a dynamic one to improve performance
   const staticTime = "9:41"; // Apple's marketing time
@@ -56,10 +64,37 @@ const AppPreview = memo(({
     loadPreviewContent();
   };
 
+  const deviceStyles = {
+    width: previewResolution === "tablet" ? "380px" : "280px",
+    height: previewResolution === "tablet" ? "640px" : "560px",
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h3 className="text-xl font-semibold mb-4">App Preview</h3>
-      <p className="text-gray-600 mb-4">See how your app will look on an Android device</p>
+      <p className="text-gray-600 mb-4">
+        See how your app will look on {platforms.includes("android") && platforms.includes("ios") 
+          ? "mobile devices" 
+          : platforms.includes("ios") 
+            ? "iOS devices" 
+            : "Android devices"}
+      </p>
+      
+      {platforms.length > 1 && (
+        <div className="flex space-x-2 mb-4 justify-center">
+          {platforms.map(platform => (
+            <span 
+              key={platform}
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+            >
+              <span className="material-icons mr-1 text-xs">
+                {platform === "android" ? "android" : "phone_iphone"}
+              </span>
+              {platform === "android" ? "Android" : "iOS"}
+            </span>
+          ))}
+        </div>
+      )}
       
       {!showPreview ? (
         <div className="flex justify-center mt-8 mb-8">
@@ -74,7 +109,7 @@ const AppPreview = memo(({
         </div>
       ) : (
         <div className="flex flex-col items-center">
-          <div className="border-8 border-gray-800 rounded-3xl relative bg-white mb-4" style={{ width: "280px", height: "560px" }}>
+          <div className="border-8 border-gray-800 rounded-3xl relative bg-white mb-4" style={deviceStyles}>
             {/* Status Bar */}
             <div className="bg-gray-800 w-full p-2 flex justify-between items-center text-white text-xs">
               <div>{staticTime}</div>
@@ -91,10 +126,14 @@ const AppPreview = memo(({
             {/* App Content */}
             <div className="bg-gray-100 h-full flex flex-col overflow-hidden">
               {/* App Bar */}
-              <div className="p-3 bg-blue-600 text-white flex items-center">
-                <span className="material-icons mr-2">arrow_back</span>
-                <span className="font-medium">{appName || "My App"}</span>
-              </div>
+              {showHeaderAppName && (
+                <div className="p-3 bg-blue-600 text-white flex items-center">
+                  <span className="material-icons mr-2">
+                    {platforms.includes("ios") && !platforms.includes("android") ? "arrow_back_ios" : "arrow_back"}
+                  </span>
+                  <span className="font-medium">{appName || "My App"}</span>
+                </div>
+              )}
               
               {/* App Content */}
               <div className="flex-1 flex items-center justify-center bg-white">
@@ -127,10 +166,12 @@ const AppPreview = memo(({
                   </div>
                 ) : sourceType === "website" && url ? (
                   <div className="w-full h-full flex flex-col">
-                    <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center text-xs">
-                      <span className="material-icons text-gray-600 text-xs mr-1">lock</span>
-                      <span className="truncate font-mono text-gray-700">{url}</span>
-                    </div>
+                    {showUrlBar && (
+                      <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center text-xs">
+                        <span className="material-icons text-gray-600 text-xs mr-1">lock</span>
+                        <span className="truncate font-mono text-gray-700">{url}</span>
+                      </div>
+                    )}
                     <div className="flex-1 overflow-hidden">
                       <iframe 
                         src={url}
@@ -141,15 +182,17 @@ const AppPreview = memo(({
                       />
                     </div>
                     <div className="p-2 bg-gray-50 border-t border-gray-200 text-center text-xs text-gray-500">
-                      Preview may be limited. Your final app will have full access to the website.
+                      {platforms.includes("ios") ? "iOS App Preview" : "Android App Preview"}
                     </div>
                   </div>
                 ) : sourceType === "html" && htmlContent ? (
                   <div className="w-full h-full flex flex-col">
-                    <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center text-xs">
-                      <span className="material-icons text-green-600 text-xs mr-1">code</span>
-                      <span className="font-medium text-gray-700">{appName || "HTML Preview"}</span>
-                    </div>
+                    {showUrlBar && (
+                      <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center text-xs">
+                        <span className="material-icons text-green-600 text-xs mr-1">code</span>
+                        <span className="font-medium text-gray-700">{appName || "HTML Preview"}</span>
+                      </div>
+                    )}
                     <div className="flex-1 overflow-hidden">
                       <iframe 
                         srcDoc={htmlContent}
@@ -178,6 +221,21 @@ const AppPreview = memo(({
                       <span className="material-icons text-gray-400">preview</span>
                     </div>
                   </div>
+                ) : sourceType === "code" ? (
+                  <div className="text-center p-4">
+                    <div className="bg-blue-100 rounded-full h-12 w-12 flex items-center justify-center mx-auto mb-3">
+                      <span className="material-icons text-blue-600">code</span>
+                    </div>
+                    <p className="font-medium text-gray-800">{appName || "My App"}</p>
+                    <p className="text-sm text-gray-600 mt-1 mb-3">Custom Code App</p>
+                    <div className="flex items-center justify-center mb-2">
+                      <span className="material-icons text-blue-600 mr-1 text-sm">integration_instructions</span>
+                      <span className="text-xs">AI Generated Code</span>
+                    </div>
+                    <div className="h-16 w-36 bg-gray-100 rounded mx-auto flex items-center justify-center p-2 text-xs">
+                      <span className="material-icons text-gray-600">code</span>
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center p-4">
                     <div className="animate-pulse flex flex-col items-center">
@@ -190,7 +248,9 @@ const AppPreview = memo(({
                         ? "Enter a valid URL to see a preview" 
                         : sourceType === "html" 
                           ? "Enter HTML content to see a preview" 
-                          : "Upload a PDF file to see a preview"}
+                          : sourceType === "pdf"
+                            ? "Upload a PDF file to see a preview"
+                            : "Generate or enter code to see a preview"}
                     </p>
                   </div>
                 )}

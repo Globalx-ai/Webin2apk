@@ -106,6 +106,14 @@ export const websiteFormSchema = z.object({
   
   // PDF file is handled separately in the form data
   
+  // Platform selection
+  platforms: z.array(z.enum(["android", "ios"])).default(["android"]),
+  
+  // Display settings
+  showHeaderAppName: z.boolean().optional().default(true),
+  showUrlBar: z.boolean().optional().default(true),
+  previewResolution: z.enum(["phone", "tablet", "desktop", "auto"]).optional().default("phone"),
+  
   // Common fields for all conversion types
   appName: z.string().min(3, "App name must be at least 3 characters"),
   packageName: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/i, "Invalid package name format (e.g., com.example.app)"),

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 // Removed Collapsible component as it was causing issues
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +45,10 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
       appName: "",
       packageName: "",
       description: "",
+      platforms: ["android"],
+      showHeaderAppName: true,
+      showUrlBar: true,
+      previewResolution: "phone",
       enableJavaScript: true,
       enableDomStorage: true,
       enableZoom: false,
@@ -438,6 +443,168 @@ public class MainActivity extends AppCompatActivity {
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 space-y-6">
+                    <div className="p-4 border border-blue-100 bg-blue-50 rounded-lg mb-4">
+                      <div className="flex items-center mb-2">
+                        <span className="material-icons text-blue-600 mr-2">devices</span>
+                        <h4 className="font-medium">Platform Selection</h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="platforms"
+                          render={() => (
+                            <FormItem className="space-y-0">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id="android-platform" 
+                                  checked={form.watch("platforms").includes("android")} 
+                                  onCheckedChange={(checked) => {
+                                    const currentPlatforms = form.watch("platforms");
+                                    if (checked) {
+                                      form.setValue("platforms", [...currentPlatforms.filter(p => p !== "android"), "android"]);
+                                    } else {
+                                      // Keep at least one platform selected
+                                      if (currentPlatforms.length > 1) {
+                                        form.setValue("platforms", currentPlatforms.filter(p => p !== "android"));
+                                      }
+                                    }
+                                  }}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                  <FormLabel htmlFor="android-platform" className="flex items-center">
+                                    <span className="material-icons mr-1 text-green-600 text-lg">android</span>
+                                    Android
+                                  </FormLabel>
+                                </div>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="platforms"
+                          render={() => (
+                            <FormItem className="space-y-0">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id="ios-platform" 
+                                  checked={form.watch("platforms").includes("ios")}
+                                  onCheckedChange={(checked) => {
+                                    const currentPlatforms = form.watch("platforms");
+                                    if (checked) {
+                                      form.setValue("platforms", [...currentPlatforms.filter(p => p !== "ios"), "ios"]);
+                                    } else {
+                                      // Keep at least one platform selected
+                                      if (currentPlatforms.length > 1) {
+                                        form.setValue("platforms", currentPlatforms.filter(p => p !== "ios"));
+                                      }
+                                    }
+                                  }}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                  <FormLabel htmlFor="ios-platform" className="flex items-center">
+                                    <span className="material-icons mr-1 text-gray-600 text-lg">phone_iphone</span>
+                                    iOS
+                                  </FormLabel>
+                                </div>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Display Options */}
+                    <div className="p-4 border border-blue-100 bg-blue-50 rounded-lg mb-4">
+                      <div className="flex items-center mb-2">
+                        <span className="material-icons text-blue-600 mr-2">settings_display</span>
+                        <h4 className="font-medium">Display Options</h4>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <FormField
+                            control={form.control}
+                            name="showHeaderAppName"
+                            render={({ field }) => (
+                              <FormItem className="flex items-start space-x-2 mb-4">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    id="show-header-name"
+                                  />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                  <FormLabel htmlFor="show-header-name" className="text-sm font-medium">
+                                    Show App Name in Header
+                                  </FormLabel>
+                                  <FormDescription>
+                                    Display your app name in the app's top bar
+                                  </FormDescription>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="showUrlBar"
+                            render={({ field }) => (
+                              <FormItem className="flex items-start space-x-2">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    id="show-url-bar"
+                                  />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                  <FormLabel htmlFor="show-url-bar" className="text-sm font-medium">
+                                    Show URL Bar
+                                  </FormLabel>
+                                  <FormDescription>
+                                    Display the URL bar in web content (hide for a more app-like feel)
+                                  </FormDescription>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <FormField
+                          control={form.control}
+                          name="previewResolution"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Preview Resolution</FormLabel>
+                              <Select 
+                                onValueChange={field.onChange} 
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select preview resolution" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="phone">Phone</SelectItem>
+                                  <SelectItem value="tablet">Tablet</SelectItem>
+                                  <SelectItem value="desktop">Desktop</SelectItem>
+                                  <SelectItem value="auto">Automatic</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                Choose how content should be scaled for different screen sizes
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
@@ -604,6 +771,69 @@ public class MainActivity extends AppCompatActivity {
                           <h4 className="text-lg font-medium mb-4">Advanced Options</h4>
                           
                           <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Display Settings</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField
+                                control={form.control}
+                                name="showHeaderAppName"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center space-x-2">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm text-gray-600">Show App Name in Header</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="showUrlBar"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center space-x-2">
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm text-gray-600">Show URL Bar</FormLabel>
+                                  </FormItem>
+                                )}
+                              />
+                              
+                              <FormField
+                                control={form.control}
+                                name="previewResolution"
+                                render={({ field }) => (
+                                  <FormItem className="col-span-2">
+                                    <FormLabel>Preview Resolution</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select resolution" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="phone">Phone (Default)</SelectItem>
+                                        <SelectItem value="tablet">Tablet</SelectItem>
+                                        <SelectItem value="desktop">Desktop</SelectItem>
+                                        <SelectItem value="auto">Auto-detect</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormDescription>
+                                      Select how your content should be displayed in the app
+                                    </FormDescription>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">WebView Settings</label>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <FormField
@@ -750,8 +980,12 @@ public class MainActivity extends AppCompatActivity {
                       url={form.watch("websiteUrl") || ""} 
                       packageName={form.watch("packageName") || "com.example.myapp"}
                       htmlContent={form.watch("htmlContent")}
-                      sourceType={currentTab}
+                      sourceType={currentTab === "code" ? "website" : currentTab}
                       pdfFileName={uploadedPdfName}
+                      showHeaderAppName={form.watch("showHeaderAppName")}
+                      showUrlBar={form.watch("showUrlBar")}
+                      previewResolution={form.watch("previewResolution")}
+                      platforms={form.watch("platforms")}
                     />
                   </div>
                 </div>
