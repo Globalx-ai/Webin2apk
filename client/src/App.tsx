@@ -11,6 +11,7 @@ import AboutPage from "@/pages/AboutPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import Settings from "@/pages/Settings";
+import AdminPanel from "@/pages/AdminPanel";
 import AuthPage from "@/pages/auth-page";
 import MainLayout from "@/components/layout/MainLayout";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -24,6 +25,7 @@ function Router() {
       <ProtectedRoute path="/projects" component={Projects} />
       <ProtectedRoute path="/documentation" component={Documentation} />
       <ProtectedRoute path="/settings" component={Settings} />
+      <ProtectedRoute path="/admin" component={AdminPanel} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/about" component={AboutPage} />
       <Route path="/privacy" component={PrivacyPage} />

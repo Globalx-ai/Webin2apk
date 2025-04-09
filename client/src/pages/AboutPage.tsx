@@ -17,18 +17,11 @@ export default function AboutPage() {
           </section>
           
           <section className="space-y-4">
-            <h2 className="text-2xl font-semibold">Company Information</h2>
+            <h2 className="text-2xl font-semibold">Contact Information</h2>
             <Card className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                 <div>
-                  <h3 className="text-xl font-medium mb-2">SDSV TRADE TECH LLP</h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    LLPIN: AAY-8970<br />
-                    Incorporated in India
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-xl font-medium mb-2">Contact Information</h3>
+                  <h3 className="text-xl font-medium mb-2">Get in Touch</h3>
                   <p className="text-gray-600 dark:text-gray-400">
                     Email: contact@webin2apk.com<br />
                     Support: support@webin2apk.com
@@ -82,10 +75,10 @@ export default function AboutPage() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">Our Story</h2>
             <p className="text-lg text-gray-700 dark:text-gray-300">
-              Founded in 2023, SDSV TRADE TECH LLP identified a significant gap in the market: 
+              Founded in 2023, Webin2Apk identified a significant gap in the market: 
               while businesses increasingly need mobile applications, the development process remained 
               complex, expensive, and time-consuming. Our team of experienced developers and designers 
-              came together to create Webin2Apk, a platform that democratizes app development.
+              came together to create a platform that democratizes app development.
             </p>
             <p className="text-lg text-gray-700 dark:text-gray-300">
               Today, we serve clients worldwide, helping businesses, entrepreneurs, educational institutions, 

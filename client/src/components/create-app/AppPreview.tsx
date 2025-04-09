@@ -126,29 +126,41 @@ const AppPreview = memo(({
                     </Button>
                   </div>
                 ) : sourceType === "website" && url ? (
-                  <div className="text-center p-4">
-                    <div className="bg-gray-100 rounded-full h-12 w-12 flex items-center justify-center mx-auto mb-3">
-                      <span className="material-icons text-blue-600">public</span>
+                  <div className="w-full h-full flex flex-col">
+                    <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center text-xs">
+                      <span className="material-icons text-gray-600 text-xs mr-1">lock</span>
+                      <span className="truncate font-mono text-gray-700">{url}</span>
                     </div>
-                    <p className="font-medium text-gray-800">{appName || "My App"}</p>
-                    <p className="text-sm text-gray-600 mt-1 mb-3">
-                      <span className="truncate inline-block max-w-[180px]">{url}</span>
-                    </p>
-                    <div className="h-2 w-48 bg-gray-200 rounded-full mx-auto">
-                      <div className="h-2 bg-blue-600 rounded-full w-1/2"></div>
+                    <div className="flex-1 overflow-hidden">
+                      <iframe 
+                        src={url}
+                        className="w-full h-full border-0"
+                        sandbox="allow-scripts allow-same-origin"
+                        title="Website Preview"
+                        onError={() => setPreviewError("Failed to load website. This preview may not work for all sites, but your final app will render correctly.")}
+                      />
+                    </div>
+                    <div className="p-2 bg-gray-50 border-t border-gray-200 text-center text-xs text-gray-500">
+                      Preview may be limited. Your final app will have full access to the website.
                     </div>
                   </div>
                 ) : sourceType === "html" && htmlContent ? (
-                  <div className="text-center p-4">
-                    <div className="bg-gray-100 rounded-full h-12 w-12 flex items-center justify-center mx-auto mb-3">
-                      <span className="material-icons text-green-600">code</span>
+                  <div className="w-full h-full flex flex-col">
+                    <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center text-xs">
+                      <span className="material-icons text-green-600 text-xs mr-1">code</span>
+                      <span className="font-medium text-gray-700">{appName || "HTML Preview"}</span>
                     </div>
-                    <p className="font-medium text-gray-800">{appName || "My App"}</p>
-                    <p className="text-sm text-gray-600 mt-1 mb-3">HTML content loaded</p>
-                    <div className="h-20 w-40 bg-gray-50 border border-gray-200 rounded mx-auto overflow-hidden">
-                      <div className="text-xs text-left p-1 font-mono opacity-50 truncate">
-                        {htmlContent.substring(0, 100)}...
-                      </div>
+                    <div className="flex-1 overflow-hidden">
+                      <iframe 
+                        srcDoc={htmlContent}
+                        className="w-full h-full border-0"
+                        sandbox="allow-scripts"
+                        title="HTML Preview"
+                        onError={() => setPreviewError("Failed to render HTML content.")}
+                      />
+                    </div>
+                    <div className="p-2 bg-gray-50 border-t border-gray-200 text-center text-xs text-gray-500">
+                      Live HTML preview
                     </div>
                   </div>
                 ) : sourceType === "pdf" && pdfFileName ? (

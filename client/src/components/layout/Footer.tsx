@@ -10,7 +10,7 @@ export function Footer() {
           <div className="space-y-4">
             <h3 className="text-xl font-semibold">Webin2Apk</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              A product of SDSV TRADE TECH LLP (LLPIN: AAY-8970), transforming web content into mobile applications.
+              Transform web content into mobile applications with our easy-to-use platform.
             </p>
           </div>
           
@@ -42,7 +42,7 @@ export function Footer() {
         
         <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            &copy; {currentYear} SDSV TRADE TECH LLP. All rights reserved.
+            &copy; {currentYear} Webin2Apk. All rights reserved.
           </p>
           <div className="flex space-x-4 mt-4 md:mt-0">
             <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 dark:text-gray-400 hover:text-primary">

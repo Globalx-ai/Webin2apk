@@ -23,6 +23,10 @@ const helpLinks: SidebarLink[] = [
   { path: "https://github.com", label: "GitHub Repository", icon: "code" },
 ];
 
+const adminLinks: SidebarLink[] = [
+  { path: "/admin", label: "Admin Panel", icon: "admin_panel_settings" },
+];
+
 const Sidebar = () => {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -99,7 +103,6 @@ const Sidebar = () => {
           <span className="material-icons text-purple-500">android</span>
           <div>
             <h1 className="text-xl font-semibold">Webin2Apk</h1>
-            <p className="text-xs text-gray-400">by SDSV TRADE TECH</p>
           </div>
         </div>
         <button 
@@ -137,6 +140,18 @@ const Sidebar = () => {
         {helpLinks.map((link) => (
           <NavLink key={link.path} link={link} />
         ))}
+        
+        {/* Show admin section only for admin users */}
+        {user && user.username === "admin" && (
+          <>
+            <div className="px-4 py-2 mt-6 text-gray-400 uppercase text-xs font-semibold">
+              Admin
+            </div>
+            {adminLinks.map((link) => (
+              <NavLink key={link.path} link={link} />
+            ))}
+          </>
+        )}
         
         {user && (
           <>

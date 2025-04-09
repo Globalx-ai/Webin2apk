@@ -73,31 +73,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { websiteUrl } = req.body;
       
-      // Use zod to validate the URL
+      // Use zod to validate the URL format
       const validatedUrl = z.string().url().safeParse(websiteUrl);
       
       if (!validatedUrl.success) {
         return res.status(400).json({ 
           valid: false, 
-          message: "Invalid URL format" 
+          message: "Invalid URL format. Please include http:// or https:// prefix." 
         });
       }
       
-      // Test if the URL is reachable
+      // Test if the URL is reachable - try with GET first since some servers reject HEAD requests
       try {
-        const response = await fetch(websiteUrl, { method: "HEAD" });
+        // Try GET request with a short timeout for better user experience
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(websiteUrl, { 
+          method: "GET",
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
         if (response.ok) {
           return res.json({ valid: true, message: "URL is valid and accessible" });
         } else {
+          // Fallback to HEAD request if GET fails with 4xx status
+          if (response.status >= 400 && response.status < 500) {
+            const headResponse = await fetch(websiteUrl, { method: "HEAD" });
+            if (headResponse.ok) {
+              return res.json({ valid: true, message: "URL is valid and accessible" });
+            }
+          }
+          
           return res.status(400).json({ 
             valid: false, 
-            message: `URL returned status ${response.status}` 
+            message: `URL returned status ${response.status}. The website may be blocking our requests.` 
           });
         }
       } catch (error) {
+        console.error("URL validation error:", error);
+        // Return a more user-friendly error message
         return res.status(400).json({ 
           valid: false, 
-          message: "Could not connect to the website" 
+          message: "Could not connect to the website. Please check if the URL is correct and the website is accessible." 
         });
       }
     } catch (error) {
