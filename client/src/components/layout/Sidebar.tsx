@@ -97,7 +97,10 @@ const Sidebar = () => {
       <div className="p-4 flex items-center justify-between md:justify-center">
         <div className="flex items-center space-x-2">
           <span className="material-icons text-purple-500">android</span>
-          <h1 className="text-xl font-semibold">App Bundle Maker</h1>
+          <div>
+            <h1 className="text-xl font-semibold">Webin2Apk</h1>
+            <p className="text-xs text-gray-400">by SDSV TRADE TECH</p>
+          </div>
         </div>
         <button 
           className="md:hidden focus:outline-none"
