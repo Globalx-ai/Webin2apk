@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 type SidebarLink = {
@@ -85,6 +86,12 @@ const Sidebar = () => {
     );
   };
 
+  const { user, logoutMutation } = useAuth();
+  
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
+
   return (
     <aside className="bg-gray-800 text-white w-full md:w-64 md:fixed md:h-full md:overflow-y-auto flex-shrink-0 transition-all duration-300 ease-in-out z-10">
       <div className="p-4 flex items-center justify-between md:justify-center">
@@ -127,6 +134,27 @@ const Sidebar = () => {
         {helpLinks.map((link) => (
           <NavLink key={link.path} link={link} />
         ))}
+        
+        {user && (
+          <>
+            <div className="px-4 py-2 mt-6 text-gray-400 uppercase text-xs font-semibold">
+              Account
+            </div>
+            <div className="px-4 py-3 text-gray-300">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-icons">account_circle</span>
+                <span className="font-medium">{user.username}</span>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="flex items-center px-2 py-1 mt-1 text-sm text-red-400 hover:text-red-300 transition"
+              >
+                <span className="material-icons mr-2 text-sm">logout</span>
+                Logout
+              </button>
+            </div>
+          </>
+        )}
       </nav>
       
       <div className="absolute bottom-0 w-full p-4 hidden md:block">

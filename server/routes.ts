@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -8,6 +8,7 @@ import { generateAppIcon } from "./utils/imageProcessor";
 import { generateAndroidManifest } from "./utils/manifestGenerator";
 import { generateKeystore } from "./utils/keystore";
 import { fetchCodeWithAI, improveCodeWithAI } from "./services/aiCodeFetcher";
+import { setupAuth } from "./auth";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
@@ -48,6 +49,9 @@ const storage_multer = multer.diskStorage({
 const upload = multer({ storage: storage_multer });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication
+  setupAuth(app);
+  
   // API routes
   
   // Test API connection
@@ -98,6 +102,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new project
   app.post("/api/projects", async (req: Request, res: Response) => {
     try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
       const formData = websiteFormSchema.safeParse(req.body);
       
       if (!formData.success) {
@@ -109,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the project
       const projectData = {
-        userId: 1, // For simplicity, default to user ID 1
+        userId: req.user.id, // Use the authenticated user's ID
         name: formData.data.appName,
         packageName: formData.data.packageName,
         sourceUrl: formData.data.websiteUrl || "",
@@ -152,8 +161,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all projects
   app.get("/api/projects", async (req: Request, res: Response) => {
     try {
-      const userId = 1; // For simplicity, default to user ID 1
-      const projects = await storage.getProjectsByUserId(userId);
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const projects = await storage.getProjectsByUserId(req.user.id);
       res.json(projects);
     } catch (error) {
       res.status(500).json({ 
@@ -166,6 +179,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get project by ID
   app.get("/api/projects/:id", async (req: Request, res: Response) => {
     try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid project ID" });
@@ -174,6 +192,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = await storage.getProject(id);
       if (!project) {
         return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if the project belongs to the current user
+      if (project.userId !== req.user.id) {
+        return res.status(403).json({ error: "You don't have permission to access this project" });
       }
       
       const appConfig = await storage.getAppConfig(id);
