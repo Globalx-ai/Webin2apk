@@ -6,7 +6,15 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  name: text("name"),
   email: text("email"),
+  phone: text("phone"),
+  address1: text("address_line1"),
+  address2: text("address_line2"),
+  city: text("city"),
+  state: text("state"),
+  zipcode: text("zipcode"),
+  country: text("country"),
   subscriptionStatus: text("subscription_status").default("free_trial"),
   subscriptionExpiry: text("subscription_expiry"),
   stripeCustomerId: text("stripe_customer_id"),
@@ -17,7 +25,9 @@ export const users = pgTable("users", {
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  name: true,
   email: true,
+  phone: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -112,7 +122,19 @@ export const websiteFormSchema = z.object({
   // Display settings
   showHeaderAppName: z.boolean().optional().default(true),
   showUrlBar: z.boolean().optional().default(true),
-  previewResolution: z.enum(["phone", "tablet", "desktop", "auto"]).optional().default("phone"),
+  previewResolution: z.enum([
+    // Phone resolutions
+    "240x320", "320x480", "480x800", "540x960", "720x1280", 
+    "1080x1920", "1440x2560", "2160x3840", "720x1440", 
+    "1080x2160", "1080x2340", "1440x3120",
+    // Tablet resolutions
+    "600x1024", "800x1280", "1200x1920", "1600x2560", 
+    "1536x2048", "1668x2388", "2048x2732",
+    // Foldable resolutions
+    "2208x2480", "2290x1080",
+    // Generic categories (for backward compatibility)
+    "phone", "tablet", "auto"
+  ]).optional().default("720x1280"),
   
   // Common fields for all conversion types
   appName: z.string().min(3, "App name must be at least 3 characters"),

@@ -23,13 +23,27 @@ const loginSchema = insertUserSchema.pick({
   password: true,
 });
 
-const registerSchema = insertUserSchema.refine(
-  (data) => data.password.length >= 6,
-  {
-    message: "Password must be at least 6 characters",
-    path: ["password"],
-  }
-);
+const registerSchema = insertUserSchema
+  .extend({
+    confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+    name: z.string().optional().default(""),
+    email: z.string().email("Please enter a valid email").optional().default(""),
+    phone: z.string().optional().default(""),
+  })
+  .refine(
+    (data) => data.password.length >= 6,
+    {
+      message: "Password must be at least 6 characters",
+      path: ["password"],
+    }
+  )
+  .refine(
+    (data) => data.password === data.confirmPassword,
+    {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    }
+  );
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
@@ -55,7 +69,11 @@ export default function AuthPage() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       username: "",
+      name: "",
+      email: "",
+      phone: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
@@ -189,41 +207,130 @@ export default function AuthPage() {
                 <TabsContent value="register">
                   <Form {...registerForm}>
                     <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-6">
-                      <FormField
-                        control={registerForm.control}
-                        name="username"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Username</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Choose a username"
-                                {...field}
-                                disabled={registerMutation.isPending}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={registerForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="password"
-                                placeholder="Create a secure password"
-                                {...field}
-                                disabled={registerMutation.isPending}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={registerForm.control}
+                          name="username"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Username*</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Choose a username"
+                                  {...field}
+                                  disabled={registerMutation.isPending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={registerForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Full Name*</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Your full name"
+                                  {...field}
+                                  value={field.value || ""}
+                                  disabled={registerMutation.isPending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={registerForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="email"
+                                  placeholder="your.email@example.com"
+                                  {...field}
+                                  value={field.value || ""}
+                                  disabled={registerMutation.isPending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={registerForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Mobile Number</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Your mobile number"
+                                  {...field}
+                                  value={field.value || ""}
+                                  disabled={registerMutation.isPending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={registerForm.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Password*</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="password"
+                                  placeholder="Create a secure password"
+                                  {...field}
+                                  disabled={registerMutation.isPending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={registerForm.control}
+                          name="confirmPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Confirm Password*</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="password"
+                                  placeholder="Confirm your password"
+                                  {...field}
+                                  disabled={registerMutation.isPending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      <div className="text-sm text-gray-500 mt-2">
+                        <p>Fields marked with * are required</p>
+                      </div>
+                      
                       <Button
                         type="submit"
                         className="w-full"

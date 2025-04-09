@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 // Removed Collapsible component as it was causing issues
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,7 +48,7 @@ const WebsiteForm = ({ onNext }: WebsiteFormProps) => {
       platforms: ["android"],
       showHeaderAppName: true,
       showUrlBar: true,
-      previewResolution: "phone",
+      previewResolution: "720x1280",
       enableJavaScript: true,
       enableDomStorage: true,
       enableZoom: false,
@@ -588,11 +588,49 @@ public class MainActivity extends AppCompatActivity {
                                     <SelectValue placeholder="Select preview resolution" />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="phone">Phone</SelectItem>
-                                  <SelectItem value="tablet">Tablet</SelectItem>
-                                  <SelectItem value="desktop">Desktop</SelectItem>
-                                  <SelectItem value="auto">Automatic</SelectItem>
+                                <SelectContent className="max-h-[400px]">
+                                  <SelectGroup>
+                                    <SelectLabel>Mobile Phones</SelectLabel>
+                                    <SelectItem value="240x320">QVGA (240×320) - Basic phones</SelectItem>
+                                    <SelectItem value="320x480">HVGA (320×480) - Early smartphones</SelectItem>
+                                    <SelectItem value="480x800">WVGA (480×800) - Older Android</SelectItem>
+                                    <SelectItem value="540x960">qHD (540×960) - Budget smartphones</SelectItem>
+                                    <SelectItem value="720x1280">HD (720×1280) - Standard mid-range</SelectItem>
+                                    <SelectItem value="1080x1920">Full HD (1080×1920) - Common</SelectItem>
+                                    <SelectItem value="1440x2560">QHD/2K (1440×2560) - High-end</SelectItem>
+                                    <SelectItem value="2160x3840">4K UHD (2160×3840) - Premium</SelectItem>
+                                  </SelectGroup>
+                                  
+                                  <SelectGroup>
+                                    <SelectLabel>Modern Aspect Ratios</SelectLabel>
+                                    <SelectItem value="720x1440">HD+ (720×1440) - Tall aspect ratio</SelectItem>
+                                    <SelectItem value="1080x2160">FHD+ (1080×2160) - Tall aspect ratio</SelectItem>
+                                    <SelectItem value="1080x2340">FHD+ (1080×2340) - Modern phones</SelectItem>
+                                    <SelectItem value="1440x3120">QHD+ (1440×3120) - Flagship phones</SelectItem>
+                                  </SelectGroup>
+                                  
+                                  <SelectGroup>
+                                    <SelectLabel>Tablets</SelectLabel>
+                                    <SelectItem value="600x1024">Small (600×1024) - Budget tablets</SelectItem>
+                                    <SelectItem value="800x1280">WXGA (800×1280) - Standard tablets</SelectItem>
+                                    <SelectItem value="1200x1920">WUXGA (1200×1920) - Mid-range</SelectItem>
+                                    <SelectItem value="1536x2048">iPad (1536×2048) - 9.7"/10.2"</SelectItem>
+                                    <SelectItem value="1668x2388">iPad Pro (1668×2388) - 11-inch</SelectItem>
+                                    <SelectItem value="2048x2732">iPad Pro (2048×2732) - 12.9-inch</SelectItem>
+                                  </SelectGroup>
+                                  
+                                  <SelectGroup>
+                                    <SelectLabel>Foldable Devices</SelectLabel>
+                                    <SelectItem value="2208x2480">Galaxy Z Fold (2208×2480) - Unfolded</SelectItem>
+                                    <SelectItem value="2290x1080">Galaxy Z Flip (2290×1080) - Cover</SelectItem>
+                                  </SelectGroup>
+                                  
+                                  <SelectGroup>
+                                    <SelectLabel>Generic Options</SelectLabel>
+                                    <SelectItem value="phone">Generic Phone</SelectItem>
+                                    <SelectItem value="tablet">Generic Tablet</SelectItem>
+                                    <SelectItem value="auto">Automatic Detection</SelectItem>
+                                  </SelectGroup>
                                 </SelectContent>
                               </Select>
                               <FormDescription>
@@ -817,11 +855,49 @@ public class MainActivity extends AppCompatActivity {
                                           <SelectValue placeholder="Select resolution" />
                                         </SelectTrigger>
                                       </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="phone">Phone (Default)</SelectItem>
-                                        <SelectItem value="tablet">Tablet</SelectItem>
-                                        <SelectItem value="desktop">Desktop</SelectItem>
-                                        <SelectItem value="auto">Auto-detect</SelectItem>
+                                      <SelectContent className="max-h-[400px]">
+                                        <SelectGroup>
+                                          <SelectLabel>Mobile Phones</SelectLabel>
+                                          <SelectItem value="240x320">QVGA (240×320) - Basic phones</SelectItem>
+                                          <SelectItem value="320x480">HVGA (320×480) - Early smartphones</SelectItem>
+                                          <SelectItem value="480x800">WVGA (480×800) - Older Android</SelectItem>
+                                          <SelectItem value="540x960">qHD (540×960) - Budget smartphones</SelectItem>
+                                          <SelectItem value="720x1280">HD (720×1280) - Standard mid-range</SelectItem>
+                                          <SelectItem value="1080x1920">Full HD (1080×1920) - Common</SelectItem>
+                                          <SelectItem value="1440x2560">QHD/2K (1440×2560) - High-end</SelectItem>
+                                          <SelectItem value="2160x3840">4K UHD (2160×3840) - Premium</SelectItem>
+                                        </SelectGroup>
+                                        
+                                        <SelectGroup>
+                                          <SelectLabel>Modern Aspect Ratios</SelectLabel>
+                                          <SelectItem value="720x1440">HD+ (720×1440) - Tall aspect ratio</SelectItem>
+                                          <SelectItem value="1080x2160">FHD+ (1080×2160) - Tall aspect ratio</SelectItem>
+                                          <SelectItem value="1080x2340">FHD+ (1080×2340) - Modern phones</SelectItem>
+                                          <SelectItem value="1440x3120">QHD+ (1440×3120) - Flagship phones</SelectItem>
+                                        </SelectGroup>
+                                        
+                                        <SelectGroup>
+                                          <SelectLabel>Tablets</SelectLabel>
+                                          <SelectItem value="600x1024">Small (600×1024) - Budget tablets</SelectItem>
+                                          <SelectItem value="800x1280">WXGA (800×1280) - Standard tablets</SelectItem>
+                                          <SelectItem value="1200x1920">WUXGA (1200×1920) - Mid-range</SelectItem>
+                                          <SelectItem value="1536x2048">iPad (1536×2048) - 9.7"/10.2"</SelectItem>
+                                          <SelectItem value="1668x2388">iPad Pro (1668×2388) - 11-inch</SelectItem>
+                                          <SelectItem value="2048x2732">iPad Pro (2048×2732) - 12.9-inch</SelectItem>
+                                        </SelectGroup>
+                                        
+                                        <SelectGroup>
+                                          <SelectLabel>Foldable Devices</SelectLabel>
+                                          <SelectItem value="2208x2480">Galaxy Z Fold (2208×2480) - Unfolded</SelectItem>
+                                          <SelectItem value="2290x1080">Galaxy Z Flip (2290×1080) - Cover</SelectItem>
+                                        </SelectGroup>
+                                        
+                                        <SelectGroup>
+                                          <SelectLabel>Generic Options</SelectLabel>
+                                          <SelectItem value="phone">Generic Phone</SelectItem>
+                                          <SelectItem value="tablet">Generic Tablet</SelectItem>
+                                          <SelectItem value="auto">Automatic Detection</SelectItem>
+                                        </SelectGroup>
                                       </SelectContent>
                                     </Select>
                                     <FormDescription>

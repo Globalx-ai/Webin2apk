@@ -14,13 +14,24 @@ const loginSchema = insertUserSchema.pick({
   password: true,
 });
 
-const registerSchema = insertUserSchema.refine(
-  (data) => data.password.length >= 6,
-  {
-    message: "Password must be at least 6 characters",
-    path: ["password"],
-  }
-);
+const registerSchema = insertUserSchema
+  .extend({
+    confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+  })
+  .refine(
+    (data) => data.password.length >= 6,
+    {
+      message: "Password must be at least 6 characters",
+      path: ["password"],
+    }
+  )
+  .refine(
+    (data) => data.password === data.confirmPassword,
+    {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    }
+  );
 
 type LoginData = z.infer<typeof loginSchema>;
 type RegisterData = z.infer<typeof registerSchema>;
@@ -73,7 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterData) => {
-      const res = await apiRequest("POST", "/api/register", credentials);
+      // Remove confirmPassword field before sending to the API
+      const { confirmPassword, ...userCredentials } = credentials;
+      const res = await apiRequest("POST", "/api/register", userCredentials);
       return await res.json();
     },
     onSuccess: (user: SelectUser) => {

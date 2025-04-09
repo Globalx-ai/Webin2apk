@@ -44,6 +44,46 @@ export default function Settings() {
                 <Label htmlFor="company">Company Name</Label>
                 <Input id="company" placeholder="Your company name" />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input id="phone" placeholder="Your phone number" />
+              </div>
+              
+              <div className="pt-4 border-t mt-4">
+                <h3 className="font-medium mb-3">Billing Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="address1">Address Line 1</Label>
+                    <Input id="address1" placeholder="Street address" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address2">Address Line 2</Label>
+                    <Input id="address2" placeholder="Apt, Suite, Unit, etc." />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" placeholder="City" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State/Province</Label>
+                    <Input id="state" placeholder="State/Province" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="zipcode">Postal/ZIP Code</Label>
+                    <Input id="zipcode" placeholder="Postal/ZIP Code" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country</Label>
+                    <Input id="country" placeholder="Country" />
+                  </div>
+                </div>
+              </div>
               
               <Button className="mt-4">Save Changes</Button>
             </CardContent>
@@ -140,6 +180,132 @@ export default function Settings() {
               </div>
               
               <Button className="mt-6">Save Distribution Settings</Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>App Store Publishing Guides</CardTitle>
+              <CardDescription>
+                Step-by-step guides for publishing to various app stores
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="border p-4 rounded-lg">
+                  <h3 className="text-lg font-medium flex items-center">
+                    <span className="material-icons mr-2 text-green-600">android</span>
+                    Google Play Store
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-2 mb-3">
+                    Follow these steps to publish your Android app to the Google Play Store.
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">1</span>
+                      <p>Create a Google Play Developer account and pay the one-time $25 registration fee</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">2</span>
+                      <p>Generate a signed APK or App Bundle using the "Build APK" option in your project</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">3</span>
+                      <p>Add your app's title, description, category, and content rating in the Google Play Console</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">4</span>
+                      <p>Upload your APK/Bundle, screenshots, feature graphic, and app icon</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">5</span>
+                      <p>Set up pricing and distribution options, then submit for review</p>
+                    </div>
+                  </div>
+                  <Button className="mt-4" variant="outline" size="sm">
+                    <span className="material-icons mr-2 text-sm">download</span>
+                    Download Complete Guide
+                  </Button>
+                </div>
+
+                <div className="border p-4 rounded-lg">
+                  <h3 className="text-lg font-medium flex items-center">
+                    <span className="material-icons mr-2 text-gray-800">phone_iphone</span>
+                    Apple App Store
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-2 mb-3">
+                    Follow these steps to publish your iOS app to the Apple App Store.
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">1</span>
+                      <p>Enroll in the Apple Developer Program for $99/year</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">2</span>
+                      <p>Create an App ID and certificates in the Apple Developer Portal</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">3</span>
+                      <p>Generate your iOS app bundle from your project settings</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">4</span>
+                      <p>Create a new app in App Store Connect and configure metadata</p>
+                    </div>
+                    <div className="flex">
+                      <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0">5</span>
+                      <p>Upload your build using Xcode or Transporter, then submit for review</p>
+                    </div>
+                  </div>
+                  <Button className="mt-4" variant="outline" size="sm">
+                    <span className="material-icons mr-2 text-sm">download</span>
+                    Download Complete Guide
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="border p-4 rounded-lg">
+                    <h3 className="text-lg font-medium">Amazon App Store</h3>
+                    <p className="text-sm text-gray-600 mt-2">
+                      Distribute your app to Amazon Fire devices.
+                    </p>
+                    <Button className="mt-3" variant="outline" size="sm">
+                      View Publishing Guide
+                    </Button>
+                  </div>
+                  
+                  <div className="border p-4 rounded-lg">
+                    <h3 className="text-lg font-medium">Samsung Galaxy Store</h3>
+                    <p className="text-sm text-gray-600 mt-2">
+                      Reach Samsung device users globally.
+                    </p>
+                    <Button className="mt-3" variant="outline" size="sm">
+                      View Publishing Guide
+                    </Button>
+                  </div>
+                  
+                  <div className="border p-4 rounded-lg">
+                    <h3 className="text-lg font-medium">Huawei AppGallery</h3>
+                    <p className="text-sm text-gray-600 mt-2">
+                      Distribute to Huawei devices worldwide.
+                    </p>
+                    <Button className="mt-3" variant="outline" size="sm">
+                      View Publishing Guide
+                    </Button>
+                  </div>
+                  
+                  <div className="border p-4 rounded-lg">
+                    <h3 className="text-lg font-medium">Other App Stores</h3>
+                    <p className="text-sm text-gray-600 mt-2">
+                      Additional distribution channels.
+                    </p>
+                    <Button className="mt-3" variant="outline" size="sm">
+                      View All Guides
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

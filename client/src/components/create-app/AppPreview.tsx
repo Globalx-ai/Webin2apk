@@ -10,7 +10,7 @@ interface AppPreviewProps {
   pdfFileName?: string;
   showHeaderAppName?: boolean;
   showUrlBar?: boolean;
-  previewResolution?: "phone" | "tablet" | "desktop" | "auto";
+  previewResolution?: string; // Updated to handle all resolution types including "phone", "720x1280", etc.
   platforms?: Array<"android" | "ios">;
 }
 
@@ -24,7 +24,7 @@ const AppPreview = memo(({
   pdfFileName,
   showHeaderAppName = true,
   showUrlBar = true,
-  previewResolution = "phone",
+  previewResolution = "720x1280",
   platforms = ["android"]
 }: AppPreviewProps) => {
   // Use a static time instead of a dynamic one to improve performance
@@ -64,20 +64,67 @@ const AppPreview = memo(({
     loadPreviewContent();
   };
 
-  const deviceStyles = {
-    width: previewResolution === "tablet" ? "380px" : "280px",
-    height: previewResolution === "tablet" ? "640px" : "560px",
+  // Calculate device dimensions based on resolution
+  const getDeviceStyles = () => {
+    // Handle specific resolution formats like "720x1280"
+    if (previewResolution && previewResolution.includes('x')) {
+      const [width, height] = previewResolution.split('x').map(Number);
+      // Scale down the dimensions to fit the preview
+      const scale = Math.min(1, 300 / Math.max(width, height));
+      return {
+        width: `${width * scale}px`,
+        height: `${height * scale}px`,
+        aspectRatio: `${width} / ${height}`,
+      };
+    }
+    
+    // Handle legacy values
+    switch (previewResolution) {
+      case "phone":
+        return { 
+          width: "280px", 
+          height: "560px"
+        };
+      case "tablet":
+        return { 
+          width: "380px", 
+          height: "640px" 
+        };
+      case "desktop":
+        return { 
+          width: "480px", 
+          height: "360px" 
+        };
+      default: // auto or unknown
+        return { 
+          width: "280px", 
+          height: "560px"
+        };
+    }
   };
+  
+  const deviceStyles = getDeviceStyles();
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h3 className="text-xl font-semibold mb-4">App Preview</h3>
-      <p className="text-gray-600 mb-4">
+      <p className="text-gray-600 mb-1">
         See how your app will look on {platforms.includes("android") && platforms.includes("ios") 
           ? "mobile devices" 
           : platforms.includes("ios") 
             ? "iOS devices" 
             : "Android devices"}
+      </p>
+      <p className="text-xs text-gray-500 mb-4">
+        {previewResolution.includes('x') 
+          ? `Resolution: ${previewResolution} (${previewResolution.split('x')[0]}×${previewResolution.split('x')[1]})` 
+          : previewResolution === "phone" 
+            ? "Resolution: Generic phone" 
+            : previewResolution === "tablet" 
+              ? "Resolution: Generic tablet" 
+              : previewResolution === "desktop" 
+                ? "Resolution: Desktop view" 
+                : "Resolution: Auto-detect"}
       </p>
       
       {platforms.length > 1 && (
