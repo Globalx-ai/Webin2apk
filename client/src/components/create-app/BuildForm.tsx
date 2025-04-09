@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { GitHubIntegration } from "@/components/github/GitHubIntegration";
 import StripePayment from "@/components/payment/StripePayment";
 
@@ -128,6 +129,7 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
   const [targetStores, setTargetStores] = useState<string[]>(["google_play", "amazon"]);
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(FEATURES.filter(f => f.isDefault).map(f => f.id));
   const [isPaid, setIsPaid] = useState(false);
+  const [githubDialogOpen, setGithubDialogOpen] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -450,7 +452,7 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
         
         {buildStatus === "completed" && (
           <div className="max-w-md mx-auto py-6">
-            <Alert className="mb-6" variant="success">
+            <Alert className="mb-6 border-green-500 bg-green-50 text-green-800">
               <AlertTitle className="font-semibold">Build Successful!</AlertTitle>
               <AlertDescription>
                 Your app has been built successfully. You can now download the APK file and/or the AAB bundle.
@@ -485,6 +487,16 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
                 >
                   <span className="material-icons mr-2">view_in_ar</span>
                   Download AAB Bundle
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setGithubDialogOpen(true)}
+                  className="flex items-center"
+                >
+                  <span className="material-icons mr-2">code</span>
+                  Push to GitHub
                 </Button>
               </div>
             </div>
@@ -542,6 +554,35 @@ const BuildForm = ({ projectId, onBack }: BuildFormProps) => {
           </Button>
         </div>
       </div>
+      
+      {/* GitHub Integration Dialog */}
+      <Dialog open={githubDialogOpen} onOpenChange={setGithubDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Push to GitHub</DialogTitle>
+            <DialogDescription>
+              Save your app's source code to a GitHub repository
+            </DialogDescription>
+          </DialogHeader>
+          
+          <GitHubIntegration 
+            projectId={projectId} 
+            onSuccess={(repoUrl) => {
+              toast({
+                title: "GitHub Repository Created",
+                description: `Your code has been pushed to ${repoUrl}`,
+              });
+              setGithubDialogOpen(false);
+            }} 
+          />
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGithubDialogOpen(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

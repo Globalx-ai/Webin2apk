@@ -792,7 +792,7 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       }
       
       // Check if the project belongs to the current user
-      if (project.userId !== req.user.id) {
+      if (project.userId !== req.user?.id) {
         return res.status(403).json({ 
           success: false, 
           message: "You don't have permission to access this project" 
@@ -806,10 +806,12 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       // 4. Update the project with the repository URL
       
       // For now, simulate success
-      const repoUrl = `https://github.com/${req.user.username}/${repoName}`;
+      const repoUrl = `https://github.com/${req.user?.username || 'user'}/${repoName}`;
       
       // Store the GitHub token with the user for future use
-      await storage.updateUserGithubToken(req.user.id, githubToken, req.user.username);
+      if (req.user) {
+        await storage.updateUserGithubToken(req.user.id, githubToken, req.user.username || '');
+      }
       
       // Update the project with the repository URL
       await storage.updateProject(projectId, {
@@ -1182,7 +1184,7 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
       // Store the admin's original user ID in a token
       // In a real implementation, this should be a properly encrypted token with expiration
       const adminToken = Buffer.from(JSON.stringify({
-        adminId: req.user.id,
+        adminId: req.user?.id || 0,
         impersonatedUserId: userIdNumber,
         timestamp: Date.now()
       })).toString('base64');
