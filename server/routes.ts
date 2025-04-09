@@ -1158,6 +1158,99 @@ Google Play uses AAB files to generate and serve optimized APKs for different de
     }
   });
   
+  // Admin impersonation routes
+  app.post("/api/admin/impersonate/:userId", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    // Check if user is admin (in a real app, this would use a role system)
+    if (req.user?.username !== "admin") {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+    
+    const { userId } = req.params;
+    const userIdNumber = parseInt(userId, 10);
+    
+    try {
+      // Get user to impersonate
+      const userToImpersonate = await storage.getUser(userIdNumber);
+      if (!userToImpersonate) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Store the admin's original user ID in a token
+      // In a real implementation, this should be a properly encrypted token with expiration
+      const adminToken = Buffer.from(JSON.stringify({
+        adminId: req.user.id,
+        impersonatedUserId: userIdNumber,
+        timestamp: Date.now()
+      })).toString('base64');
+      
+      // Change the session to impersonate the target user
+      req.login(userToImpersonate, (err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to impersonate user" });
+        }
+        
+        // Return successful response with token for returning to admin
+        return res.status(200).json({ 
+          success: true,
+          message: "Impersonation successful",
+          adminToken 
+        });
+      });
+    } catch (error) {
+      console.error("Error during impersonation:", error);
+      return res.status(500).json({ error: "Server error during impersonation" });
+    }
+  });
+  
+  // Return to admin account after impersonation
+  app.post("/api/admin/end-impersonation", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    const { adminToken } = req.body;
+    
+    if (!adminToken) {
+      return res.status(400).json({ error: "Admin token is required" });
+    }
+    
+    try {
+      // Decode token
+      const decodedToken = JSON.parse(Buffer.from(adminToken, 'base64').toString());
+      
+      // Validate token (in a real app, would include expiration check, signature verification, etc.)
+      if (!decodedToken.adminId) {
+        return res.status(400).json({ error: "Invalid admin token" });
+      }
+      
+      // Get the original admin user
+      const adminUser = await storage.getUser(decodedToken.adminId);
+      if (!adminUser) {
+        return res.status(404).json({ error: "Admin user not found" });
+      }
+      
+      // Log in as admin
+      req.login(adminUser, (err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to return to admin account" });
+        }
+        
+        // Return successful response
+        return res.status(200).json({ 
+          success: true, 
+          message: "Successfully returned to admin account" 
+        });
+      });
+    } catch (error) {
+      console.error("Error ending impersonation:", error);
+      return res.status(500).json({ error: "Server error ending impersonation" });
+    }
+  });
+  
   // Create subscription
   app.post("/api/create-subscription", async (req: Request, res: Response) => {
     try {

@@ -11,9 +11,18 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger, 
+  DialogFooter
+} from "@/components/ui/dialog";
 import { CouponManager } from "@/components/admin/CouponManager";
 import { SubscriptionPriceManager } from "@/components/admin/SubscriptionPriceManager";
+import { UserProfile } from "@/components/admin/UserProfile";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
 
@@ -74,6 +83,65 @@ const AdminPanel = () => {
   });
   const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
   const [buildsByDay, setBuildsByDay] = useState<BuildsByDay[]>([]);
+  
+  // State for user detail modal
+  const [userDetailDialogOpen, setUserDetailDialogOpen] = useState(false);
+  const [userProfileOpen, setUserProfileOpen] = useState(false);
+  const [selectedUserDetail, setSelectedUserDetail] = useState<UserLoginData | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  
+  // Handler for viewing basic user details
+  const handleViewUserDetails = (userId: number) => {
+    const user = userLogins.find(login => login.id === userId);
+    if (user) {
+      setSelectedUserDetail(user);
+      setUserDetailDialogOpen(true);
+    } else {
+      toast({
+        title: "User not found",
+        description: "Could not find details for this user.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Handler for viewing advanced user profile
+  const handleViewFullUserProfile = (userId: number) => {
+    setSelectedUserId(userId);
+    setUserProfileOpen(true);
+    // Close the basic dialog if it's open
+    if (userDetailDialogOpen) {
+      setUserDetailDialogOpen(false);
+    }
+  };
+  
+  // Handler for admin impersonation of user
+  const handleImpersonateUser = async (userId: number) => {
+    try {
+      // In a real implementation, this would be an actual API call
+      // const response = await apiRequest("POST", `/api/admin/impersonate/${userId}`);
+      
+      // For demonstration, we'll simulate the API call
+      console.log(`Admin impersonating user ID: ${userId}`);
+      
+      // Store the admin session token for returning back to admin later
+      localStorage.setItem('adminToken', 'admin-session-token');
+      
+      toast({
+        title: "Impersonation successful",
+        description: "You are now viewing the application as this user. Your admin session is preserved.",
+      });
+      
+      // Navigate to the user's dashboard
+      window.location.href = "/dashboard?impersonating=true";
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     // In a real application, you would fetch this data from your API
@@ -174,6 +242,79 @@ const AdminPanel = () => {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-6">Admin Panel</h1>
+      
+      {/* User Details Dialog */}
+      {/* Quick User Details Dialog */}
+      <Dialog open={userDetailDialogOpen} onOpenChange={setUserDetailDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the selected user
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedUserDetail && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">User ID</h3>
+                  <p>{selectedUserDetail.id}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Username</h3>
+                  <p>{selectedUserDetail.username}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Last Login</h3>
+                  <p>{selectedUserDetail.lastLogin}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">IP Address</h3>
+                  <p>{selectedUserDetail.ipAddress}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Login Count</h3>
+                  <p>{selectedUserDetail.loginCount}</p>
+                </div>
+              </div>
+              
+              <div className="border-t pt-4 mt-4 flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setUserDetailDialogOpen(false);
+                    handleViewFullUserProfile(selectedUserDetail.id);
+                  }}
+                  className="flex-1"
+                >
+                  Full Profile
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setUserDetailDialogOpen(false);
+                    handleImpersonateUser(selectedUserDetail.id);
+                  }}
+                  className="flex-1"
+                >
+                  View as User
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Detailed User Profile */}
+      {userProfileOpen && selectedUserId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto py-16">
+          <UserProfile 
+            userId={selectedUserId}
+            onClose={() => setUserProfileOpen(false)}
+            onImpersonate={handleImpersonateUser}
+          />
+        </div>
+      )}
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full md:w-auto grid-cols-1 md:grid-cols-7 mb-6">
@@ -300,6 +441,7 @@ const AdminPanel = () => {
                       <th className="px-4 py-2 text-left">Last Login</th>
                       <th className="px-4 py-2 text-left">IP Address</th>
                       <th className="px-4 py-2 text-left">Login Count</th>
+                      <th className="px-4 py-2 text-left">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -310,6 +452,31 @@ const AdminPanel = () => {
                         <td className="px-4 py-2">{login.lastLogin}</td>
                         <td className="px-4 py-2">{login.ipAddress}</td>
                         <td className="px-4 py-2">{login.loginCount}</td>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewUserDetails(login.id)}
+                            >
+                              Quick View
+                            </Button>
+                            <Button 
+                              variant="default" 
+                              size="sm"
+                              onClick={() => handleViewFullUserProfile(login.id)}
+                            >
+                              Full Profile
+                            </Button>
+                            <Button 
+                              variant="secondary" 
+                              size="sm"
+                              onClick={() => handleImpersonateUser(login.id)}
+                            >
+                              Impersonate
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
