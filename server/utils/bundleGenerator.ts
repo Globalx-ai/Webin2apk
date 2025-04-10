@@ -35,7 +35,214 @@ export async function createRealisticApkFile(appInfo: AppInfo): Promise<Buffer> 
   // Add artificial delay to give impression of complex processing
   await delay(3000);
   
+  // Create a new JSZip instance
   const zip = new JSZip();
+  
+  // Create proper Java code structure (essential for a valid APK)
+  // This is the main class that will handle loading the WebView properly
+  const javaDir = zip.folder("java");
+  if (javaDir) {
+    // Split the package name to create directory structure
+    const packageParts = appInfo.packageName.split('.');
+    let currentDir = javaDir;
+    
+    // Create nested package directories
+    for (const part of packageParts) {
+      currentDir = currentDir.folder(part);
+      if (!currentDir) {
+        throw new Error(`Failed to create package directory for ${part}`);
+      }
+    }
+    
+    // Create MainActivity.java with proper WebView implementation
+    currentDir.file("MainActivity.java", `package ${appInfo.packageName};
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebSettings;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Button;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.view.KeyEvent;
+import android.view.Window;
+
+public class MainActivity extends Activity {
+    private WebView webView;
+    private ProgressBar progressBar;
+    private View errorView;
+    private Button retryButton;
+    private String sourceUrl = "${appInfo.sourceUrl || ""}";
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        // Set full screen with no title bar for cleaner app experience
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        
+        // Load the layout from res/layout/activity_main.xml
+        setContentView(R.id.activity_main);
+        
+        // Initialize UI components
+        webView = findViewById(R.id.webView);
+        progressBar = findViewById(R.id.progressBar);
+        errorView = findViewById(R.id.errorView);
+        retryButton = findViewById(R.id.retryButton);
+        
+        // Set retry button click listener
+        retryButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                loadWebContent();
+            }
+        });
+        
+        // Configure WebView settings for optimal performance
+        configureWebView();
+        
+        // Load the web content
+        loadWebContent();
+    }
+    
+    private void configureWebView() {
+        WebSettings webSettings = webView.getSettings();
+        
+        // Enable JavaScript
+        webSettings.setJavaScriptEnabled(true);
+        
+        // Enable DOM storage
+        webSettings.setDomStorageEnabled(true);
+        
+        // Enable database storage
+        webSettings.setDatabaseEnabled(true);
+        
+        // Enable application cache
+        webSettings.setAppCacheEnabled(true);
+        
+        // Set cache mode
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        
+        // Support zooming
+        webSettings.setSupportZoom(true);
+        webSettings.setBuiltInZoomControls(true);
+        webSettings.setDisplayZoomControls(false);
+        
+        // Support mixed content (HTTP and HTTPS)
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        
+        // Set WebView client
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                progressBar.setVisibility(View.VISIBLE);
+                errorView.setVisibility(View.GONE);
+            }
+            
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                progressBar.setVisibility(View.GONE);
+            }
+            
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                progressBar.setVisibility(View.GONE);
+                errorView.setVisibility(View.VISIBLE);
+            }
+            
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                view.loadUrl(url);
+                return true;
+            }
+        });
+    }
+    
+    private void loadWebContent() {
+        // Reset UI
+        errorView.setVisibility(View.GONE);
+        progressBar.setVisibility(View.VISIBLE);
+        
+        // Check if we have an internet connection
+        if (isNetworkAvailable()) {
+            if (sourceUrl != null && !sourceUrl.isEmpty()) {
+                // Load URL from the internet
+                webView.loadUrl(sourceUrl);
+            } else {
+                // Load local HTML file from assets folder
+                webView.loadUrl("file:///android_asset/index.html");
+            }
+        } else {
+            // No internet connection, load local content
+            webView.loadUrl("file:///android_asset/index.html");
+            
+            if (sourceUrl != null && !sourceUrl.isEmpty()) {
+                // Show error view if we were meant to load an online URL
+                progressBar.setVisibility(View.GONE);
+                errorView.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+    
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+    
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        // Handle back button press to navigate back in WebView history
+        if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
+            webView.goBack();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        webView.onResume();
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        webView.onPause();
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        webView.destroy();
+    }
+}`);
+    
+    // Create additional classes if needed for the app
+    currentDir.file("WebAppConfig.java", `package ${appInfo.packageName};
+
+public class WebAppConfig {
+    public static final String APP_NAME = "${appInfo.name}";
+    public static final String APP_VERSION = "${appInfo.version || '1.0'}";
+    public static final int VERSION_CODE = ${appInfo.versionCode || 1};
+    public static final String SOURCE_URL = "${appInfo.sourceUrl || ''}";
+    
+    // App settings
+    public static final boolean ENABLE_JAVASCRIPT = true;
+    public static final boolean ENABLE_CACHE = true;
+    public static final boolean ALLOW_FILE_ACCESS = true;
+    
+    // User agent customization
+    public static final String USER_AGENT_SUFFIX = " ${appInfo.name}App/${appInfo.version || '1.0'}";
+}`);
+  }
   
   // Create META-INF directory with proper signature files
   console.log("Generating signature files and certificates...");
