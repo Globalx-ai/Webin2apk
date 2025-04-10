@@ -12,6 +12,9 @@ import {
 } from "@shared/schema";
 import session from 'express-session';
 import createMemoryStore from 'memorystore';
+import connectPg from 'connect-pg-simple';
+import { db, pool } from './db';
+import { eq, desc, and, gte, lte, like } from 'drizzle-orm';
 
 export interface IStorage {
   // User methods
@@ -738,4 +741,678 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// DatabaseStorage implementation using Supabase PostgreSQL
+export class DatabaseStorage implements IStorage {
+  public sessionStore: session.Store;
+  
+  constructor() {
+    // Initialize PostgreSQL session store
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true,
+      tableName: 'user_sessions'
+    });
+    
+    // Initialize default system settings and coupons
+    this.initializeSystemSettings();
+    this.initializeCoupons();
+  }
+  
+  // Initialize system settings
+  private async initializeSystemSettings() {
+    try {
+      // Only add default settings if none exist
+      const existingSettings = await db.select().from(systemSettings);
+      
+      if (existingSettings.length === 0) {
+        const now = new Date().toISOString();
+        const defaultSettings = [
+          { 
+            settingKey: "app_name", 
+            settingValue: "Webin2Apk", 
+            settingType: "text", 
+            category: "general", 
+            description: "Application name", 
+            isPublic: true, 
+            lastUpdated: now 
+          },
+          { 
+            settingKey: "app_version", 
+            settingValue: "1.0.0", 
+            settingType: "text", 
+            category: "general", 
+            description: "Application version", 
+            isPublic: true, 
+            lastUpdated: now 
+          },
+          {
+            settingKey: "payment_enabled",
+            settingValue: "false",
+            settingType: "boolean",
+            category: "payment",
+            description: "Enable payment requirement for builds",
+            isPublic: true,
+            lastUpdated: now
+          },
+          {
+            settingKey: "default_payment_amount",
+            settingValue: "500",
+            settingType: "number",
+            category: "payment",
+            description: "Default payment amount in cents (500 = $5.00)",
+            isPublic: true,
+            lastUpdated: now
+          }
+        ];
+        
+        for (const setting of defaultSettings) {
+          await db.insert(systemSettings).values({
+            ...setting,
+            updatedBy: null
+          });
+        }
+        
+        console.log("Default system settings initialized");
+      }
+    } catch (error) {
+      console.error("Error initializing system settings:", error);
+    }
+  }
+  
+  // Initialize default coupon codes
+  private async initializeCoupons() {
+    try {
+      // Only add default coupons if none exist
+      const existingCoupons = await db.select().from(coupons);
+      
+      if (existingCoupons.length === 0) {
+        const now = new Date().toISOString();
+        const defaultCoupons = [
+          { code: "GLOBALX", discountPercent: 100, isActive: true, createdAt: now, currentUses: 0 },
+          { code: "MAKERAPP", discountPercent: 100, isActive: true, createdAt: now, currentUses: 0 },
+          { code: "DISCOUNT5", discountPercent: 100, isActive: true, createdAt: now, currentUses: 0 }
+        ];
+        
+        for (const coupon of defaultCoupons) {
+          await db.insert(coupons).values(coupon);
+        }
+        
+        console.log("Default coupons initialized");
+      }
+    } catch (error) {
+      console.error("Error initializing coupons:", error);
+    }
+  }
+
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const now = new Date().toISOString();
+    const newUser = {
+      ...insertUser,
+      createdAt: now,
+      subscriptionStatus: "free_trial",
+      subscriptionExpiry: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+    };
+    
+    const [user] = await db.insert(users).values(newUser).returning();
+    return user;
+  }
+  
+  async updateUser(id: number, userUpdate: Partial<User>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(userUpdate)
+      .where(eq(users.id, id))
+      .returning();
+    
+    return updatedUser;
+  }
+  
+  async updateStripeCustomerId(userId: number, customerId: string): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ stripeCustomerId: customerId })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return updatedUser;
+  }
+  
+  async updateUserSubscription(userId: number, subscriptionId: string, expiryDate: string): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        stripeSubscriptionId: subscriptionId,
+        subscriptionStatus: "active",
+        subscriptionExpiry: expiryDate
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return updatedUser;
+  }
+  
+  async getTotalUsers(): Promise<number> {
+    const result = await db.select({ count: users }).from(users);
+    return Number(result[0]?.count) || 0;
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+  
+  // Project methods
+  async getProject(id: number): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
+  }
+
+  async getProjectsByUserId(userId: number): Promise<Project[]> {
+    return await db.select().from(projects).where(eq(projects.userId, userId));
+  }
+
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const now = new Date().toISOString();
+    const newProject = { 
+      ...insertProject, 
+      createdAt: now, 
+      status: "draft",
+      apkDownloadUrl: null,
+      iconPath: null,
+      isPaid: false,
+      paymentIntentId: null,
+      couponCode: null,
+      paymentAmount: 500,
+      paidAt: null
+    };
+    
+    const [project] = await db.insert(projects).values(newProject).returning();
+    return project;
+  }
+
+  async updateProject(id: number, projectUpdate: Partial<Project>): Promise<Project | undefined> {
+    const [updatedProject] = await db
+      .update(projects)
+      .set(projectUpdate)
+      .where(eq(projects.id, id))
+      .returning();
+    
+    return updatedProject;
+  }
+
+  async deleteProject(id: number): Promise<boolean> {
+    try {
+      await db.delete(projects).where(eq(projects.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      return false;
+    }
+  }
+  
+  async markProjectAsPaid(id: number, paymentIntentId: string): Promise<Project | undefined> {
+    const now = new Date().toISOString();
+    
+    const [updatedProject] = await db
+      .update(projects)
+      .set({
+        isPaid: true,
+        paymentIntentId,
+        paidAt: now,
+        status: "paid"
+      })
+      .where(eq(projects.id, id))
+      .returning();
+    
+    return updatedProject;
+  }
+
+  // AppConfig methods
+  async getAppConfig(projectId: number): Promise<AppConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(appConfigs)
+      .where(eq(appConfigs.projectId, projectId));
+    
+    return config;
+  }
+
+  async createAppConfig(insertConfig: InsertAppConfig): Promise<AppConfig> {
+    const newConfig = { 
+      ...insertConfig, 
+      enableJavaScript: insertConfig.enableJavaScript ?? true,
+      enableDomStorage: insertConfig.enableDomStorage ?? true,
+      enableZoom: insertConfig.enableZoom ?? false,
+      enableCache: insertConfig.enableCache ?? true,
+      orientation: insertConfig.orientation || "auto",
+      offlineMode: insertConfig.offlineMode || "none",
+      permissions: insertConfig.permissions || [],
+      customCodeAiSuggestions: insertConfig.customCodeAiSuggestions || {}
+    };
+    
+    const [config] = await db.insert(appConfigs).values(newConfig).returning();
+    return config;
+  }
+
+  async updateAppConfig(id: number, configUpdate: Partial<AppConfig>): Promise<AppConfig | undefined> {
+    const [updatedConfig] = await db
+      .update(appConfigs)
+      .set(configUpdate)
+      .where(eq(appConfigs.id, id))
+      .returning();
+    
+    return updatedConfig;
+  }
+  
+  // Coupon methods
+  async getCouponByCode(code: string): Promise<Coupon | undefined> {
+    const [coupon] = await db
+      .select()
+      .from(coupons)
+      .where(eq(coupons.code, code));
+    
+    return coupon;
+  }
+  
+  async createCoupon(insertCoupon: InsertCoupon): Promise<Coupon> {
+    const now = new Date().toISOString();
+    const newCoupon = {
+      ...insertCoupon,
+      createdAt: now,
+      currentUses: 0
+    };
+    
+    const [coupon] = await db.insert(coupons).values(newCoupon).returning();
+    return coupon;
+  }
+  
+  async updateCoupon(id: number, couponUpdate: Partial<Coupon>): Promise<Coupon | undefined> {
+    const [updatedCoupon] = await db
+      .update(coupons)
+      .set(couponUpdate)
+      .where(eq(coupons.id, id))
+      .returning();
+    
+    return updatedCoupon;
+  }
+  
+  async incrementCouponUsage(id: number): Promise<Coupon | undefined> {
+    // First get current coupon to get current uses
+    const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id));
+    
+    if (!coupon) return undefined;
+    
+    // Increment and update
+    const [updatedCoupon] = await db
+      .update(coupons)
+      .set({ 
+        currentUses: (coupon.currentUses || 0) + 1 
+      })
+      .where(eq(coupons.id, id))
+      .returning();
+    
+    return updatedCoupon;
+  }
+  
+  // Coupon usage methods
+  async createCouponUsage(insertUsage: InsertCouponUsage): Promise<CouponUsage> {
+    const now = new Date().toISOString();
+    const newUsage = {
+      ...insertUsage,
+      usedAt: now
+    };
+    
+    const [usage] = await db.insert(couponUsage).values(newUsage).returning();
+    return usage;
+  }
+  
+  async getCouponUsagesByUser(userId: number): Promise<CouponUsage[]> {
+    return await db
+      .select()
+      .from(couponUsage)
+      .where(eq(couponUsage.userId, userId));
+  }
+
+  // GitHub integration
+  async updateUserGithubToken(userId: number, token: string, username: string): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        githubToken: token,
+        githubUsername: username
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return updatedUser;
+  }
+  
+  // Analytics methods
+  async getAnalyticsForDate(date: string): Promise<Analytics | undefined> {
+    const dateOnly = date.split('T')[0];
+    const [analyticsData] = await db
+      .select()
+      .from(analytics)
+      .where(like(analytics.date, `${dateOnly}%`));
+    
+    return analyticsData;
+  }
+  
+  async createAnalytics(insertAnalytics: InsertAnalytics): Promise<Analytics> {
+    const [analyticsData] = await db
+      .insert(analytics)
+      .values(insertAnalytics)
+      .returning();
+    
+    return analyticsData;
+  }
+  
+  async updateAnalytics(id: number, analyticsUpdate: Partial<Analytics>): Promise<Analytics | undefined> {
+    const [updatedAnalytics] = await db
+      .update(analytics)
+      .set(analyticsUpdate)
+      .where(eq(analytics.id, id))
+      .returning();
+    
+    return updatedAnalytics;
+  }
+  
+  async getAnalyticsRange(startDate: string, endDate: string): Promise<Analytics[]> {
+    return await db
+      .select()
+      .from(analytics)
+      .where(
+        and(
+          gte(analytics.date, startDate),
+          lte(analytics.date, endDate)
+        )
+      )
+      .orderBy(analytics.date);
+  }
+  
+  // Transaction methods
+  async getTransaction(id: number): Promise<Transaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, id));
+    
+    return transaction;
+  }
+  
+  async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+      .orderBy(desc(transactions.timestamp));
+  }
+  
+  async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
+    const now = new Date().toISOString();
+    const newTransaction = {
+      ...insertTransaction,
+      timestamp: insertTransaction.timestamp || now
+    };
+    
+    const [transaction] = await db
+      .insert(transactions)
+      .values(newTransaction)
+      .returning();
+    
+    return transaction;
+  }
+  
+  async updateTransaction(id: number, transactionUpdate: Partial<Transaction>): Promise<Transaction | undefined> {
+    const [updatedTransaction] = await db
+      .update(transactions)
+      .set(transactionUpdate)
+      .where(eq(transactions.id, id))
+      .returning();
+    
+    return updatedTransaction;
+  }
+  
+  async getAllTransactions(limit?: number, offset: number = 0): Promise<Transaction[]> {
+    let query = db
+      .select()
+      .from(transactions)
+      .orderBy(desc(transactions.timestamp))
+      .offset(offset);
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query;
+  }
+  
+  // Build logs methods
+  async getBuildLog(id: number): Promise<BuildLog | undefined> {
+    const [buildLog] = await db
+      .select()
+      .from(buildLogs)
+      .where(eq(buildLogs.id, id));
+    
+    return buildLog;
+  }
+  
+  async getBuildLogsByProjectId(projectId: number): Promise<BuildLog[]> {
+    return await db
+      .select()
+      .from(buildLogs)
+      .where(eq(buildLogs.projectId, projectId))
+      .orderBy(desc(buildLogs.startTime));
+  }
+  
+  async getBuildLogsByUserId(userId: number): Promise<BuildLog[]> {
+    return await db
+      .select()
+      .from(buildLogs)
+      .where(eq(buildLogs.userId, userId))
+      .orderBy(desc(buildLogs.startTime));
+  }
+  
+  async createBuildLog(insertBuildLog: InsertBuildLog): Promise<BuildLog> {
+    const now = new Date().toISOString();
+    const newBuildLog = {
+      ...insertBuildLog,
+      startTime: now,
+      endTime: null,
+      duration: null
+    };
+    
+    const [buildLog] = await db
+      .insert(buildLogs)
+      .values(newBuildLog)
+      .returning();
+    
+    return buildLog;
+  }
+  
+  async updateBuildLog(id: number, buildLogUpdate: Partial<BuildLog>): Promise<BuildLog | undefined> {
+    const [updatedBuildLog] = await db
+      .update(buildLogs)
+      .set(buildLogUpdate)
+      .where(eq(buildLogs.id, id))
+      .returning();
+    
+    return updatedBuildLog;
+  }
+  
+  async getAllBuildLogs(limit?: number, offset: number = 0): Promise<BuildLog[]> {
+    let query = db
+      .select()
+      .from(buildLogs)
+      .orderBy(desc(buildLogs.startTime))
+      .offset(offset);
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query;
+  }
+  
+  // User activity logs methods
+  async getUserActivityLog(id: number): Promise<UserActivityLog | undefined> {
+    const [activityLog] = await db
+      .select()
+      .from(userActivityLogs)
+      .where(eq(userActivityLogs.id, id));
+    
+    return activityLog;
+  }
+  
+  async getUserActivityLogsByUserId(userId: number): Promise<UserActivityLog[]> {
+    return await db
+      .select()
+      .from(userActivityLogs)
+      .where(eq(userActivityLogs.userId, userId))
+      .orderBy(desc(userActivityLogs.timestamp));
+  }
+  
+  async createUserActivityLog(insertActivityLog: InsertUserActivityLog): Promise<UserActivityLog> {
+    const now = new Date().toISOString();
+    const newActivityLog = {
+      ...insertActivityLog,
+      timestamp: insertActivityLog.timestamp || now
+    };
+    
+    const [activityLog] = await db
+      .insert(userActivityLogs)
+      .values(newActivityLog)
+      .returning();
+    
+    return activityLog;
+  }
+  
+  async getAllUserActivityLogs(limit?: number, offset: number = 0): Promise<UserActivityLog[]> {
+    let query = db
+      .select()
+      .from(userActivityLogs)
+      .orderBy(desc(userActivityLogs.timestamp))
+      .offset(offset);
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query;
+  }
+  
+  // System settings methods
+  async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
+    const [setting] = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.settingKey, key));
+    
+    return setting;
+  }
+  
+  async getSystemSettingsByCategory(category: string): Promise<SystemSetting[]> {
+    return await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.category, category));
+  }
+  
+  async createSystemSetting(insertSetting: InsertSystemSetting): Promise<SystemSetting> {
+    const now = new Date().toISOString();
+    const newSetting = {
+      ...insertSetting,
+      lastUpdated: now
+    };
+    
+    const [setting] = await db
+      .insert(systemSettings)
+      .values(newSetting)
+      .returning();
+    
+    return setting;
+  }
+  
+  async updateSystemSetting(id: number, settingUpdate: Partial<SystemSetting>): Promise<SystemSetting | undefined> {
+    const now = new Date().toISOString();
+    
+    const [updatedSetting] = await db
+      .update(systemSettings)
+      .set({
+        ...settingUpdate,
+        lastUpdated: now
+      })
+      .where(eq(systemSettings.id, id))
+      .returning();
+    
+    return updatedSetting;
+  }
+  
+  async getAllSystemSettings(): Promise<SystemSetting[]> {
+    return await db.select().from(systemSettings);
+  }
+  
+  // Dashboard stats methods
+  async getDashboardStats(): Promise<any> {
+    // Total users
+    const userCount = await this.getTotalUsers();
+    
+    // Total projects
+    const projectsResult = await db.select({ count: projects }).from(projects);
+    const projectCount = Number(projectsResult[0]?.count) || 0;
+    
+    // Completed builds
+    const completedBuildsResult = await db
+      .select({ count: projects })
+      .from(projects)
+      .where(eq(projects.status, "built"));
+    const builtCount = Number(completedBuildsResult[0]?.count) || 0;
+    
+    // Recent transactions
+    const recentTransactions = await this.getAllTransactions(5);
+    
+    // Recent build logs
+    const recentBuildLogs = await this.getAllBuildLogs(5);
+    
+    // Platform stats
+    const androidBuildsResult = await db
+      .select({ count: buildLogs })
+      .from(buildLogs)
+      .where(like(buildLogs.buildType, "%android%"));
+    const androidBuilds = Number(androidBuildsResult[0]?.count) || 0;
+    
+    const iosBuildsResult = await db
+      .select({ count: buildLogs })
+      .from(buildLogs)
+      .where(like(buildLogs.buildType, "%ios%"));
+    const iosBuilds = Number(iosBuildsResult[0]?.count) || 0;
+    
+    return {
+      userCount,
+      projectCount,
+      builtCount,
+      recentTransactions,
+      recentBuildLogs,
+      platformStats: {
+        android: androidBuilds,
+        ios: iosBuilds
+      }
+    };
+  }
+}
+
+// Switch to PostgreSQL-based DatabaseStorage
+export const storage = new DatabaseStorage();
