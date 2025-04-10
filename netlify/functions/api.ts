@@ -53,6 +53,12 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 // Register routes
 registerRoutes(app);
 
+// Log middleware to help with debugging
+app.use((req, res, next) => {
+  console.log(`Netlify function handling: ${req.method} ${req.path}`);
+  next();
+});
+
 // Export the serverless function
 export const handler = serverless(app, {
   basePath: '/api'
