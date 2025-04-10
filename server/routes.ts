@@ -80,6 +80,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
 
+  // Test download route
+  app.get("/api/test-download", (req: Request, res: Response) => {
+    const testApkPath = path.join(process.cwd(), 'dist', 'public', 'downloads', 'Test_App_v1.0.apk');
+    
+    // Check if file exists
+    if (fs.existsSync(testApkPath)) {
+      console.log(`Test APK found at ${testApkPath}`);
+      res.download(testApkPath, 'Test_App_v1.0.apk');
+    } else {
+      console.log(`Test APK not found at ${testApkPath}`);
+      
+      // Try alternate path
+      const alternateApkPath = path.join(process.cwd(), 'server', 'public', 'downloads', 'Test_App_v1.0.apk');
+      if (fs.existsSync(alternateApkPath)) {
+        console.log(`Test APK found at alternate path ${alternateApkPath}`);
+        res.download(alternateApkPath, 'Test_App_v1.0.apk');
+      } else {
+        console.log(`Test APK not found at alternate path ${alternateApkPath}`);
+        res.status(404).json({ error: "Test APK file not found" });
+      }
+    }
+  });
+
   // Validate website URL
   app.post("/api/validate-url", async (req: Request, res: Response) => {
     try {
