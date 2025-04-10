@@ -3,7 +3,12 @@ import {
   projects, type Project, type InsertProject,
   appConfigs, type AppConfig, type InsertAppConfig,
   coupons, type Coupon, type InsertCoupon,
-  couponUsage, type CouponUsage, type InsertCouponUsage
+  couponUsage, type CouponUsage, type InsertCouponUsage,
+  analytics, type Analytics, type InsertAnalytics,
+  transactions, type Transaction, type InsertTransaction,
+  buildLogs, type BuildLog, type InsertBuildLog,
+  userActivityLogs, type UserActivityLog, type InsertUserActivityLog,
+  systemSettings, type SystemSetting, type InsertSystemSetting
 } from "@shared/schema";
 import session from 'express-session';
 import createMemoryStore from 'memorystore';
@@ -92,11 +97,21 @@ export class MemStorage implements IStorage {
   private appConfigs: Map<number, AppConfig>;
   private coupons: Map<number, Coupon>;
   private couponUsages: Map<number, CouponUsage>;
+  private analytics: Map<number, Analytics>;
+  private transactions: Map<number, Transaction>;
+  private buildLogs: Map<number, BuildLog>;
+  private userActivityLogs: Map<number, UserActivityLog>;
+  private systemSettings: Map<number, SystemSetting>;
   private userIdCounter: number;
   private projectIdCounter: number;
   private appConfigIdCounter: number;
   private couponIdCounter: number;
   private couponUsageIdCounter: number;
+  private analyticsIdCounter: number;
+  private transactionIdCounter: number;
+  private buildLogIdCounter: number;
+  private userActivityLogIdCounter: number;
+  private systemSettingIdCounter: number;
   public sessionStore: session.Store;
 
   constructor() {
@@ -105,11 +120,21 @@ export class MemStorage implements IStorage {
     this.appConfigs = new Map();
     this.coupons = new Map();
     this.couponUsages = new Map();
+    this.analytics = new Map();
+    this.transactions = new Map();
+    this.buildLogs = new Map();
+    this.userActivityLogs = new Map();
+    this.systemSettings = new Map();
     this.userIdCounter = 1;
     this.projectIdCounter = 1;
     this.appConfigIdCounter = 1;
     this.couponIdCounter = 1;
     this.couponUsageIdCounter = 1;
+    this.analyticsIdCounter = 1;
+    this.transactionIdCounter = 1;
+    this.buildLogIdCounter = 1;
+    this.userActivityLogIdCounter = 1;
+    this.systemSettingIdCounter = 1;
     
     // Initialize memory session store
     const MemoryStore = createMemoryStore(session);
@@ -119,6 +144,57 @@ export class MemStorage implements IStorage {
     
     // Initialize default coupon codes
     this.initializeCoupons();
+    
+    // Initialize system settings
+    this.initializeSystemSettings();
+  }
+  
+  // Initialize system settings
+  private async initializeSystemSettings() {
+    const now = new Date().toISOString();
+    const defaultSettings = [
+      { 
+        settingKey: "app_name", 
+        settingValue: "Webin2Apk", 
+        settingType: "text", 
+        category: "general", 
+        description: "Application name", 
+        isPublic: true, 
+        lastUpdated: now 
+      },
+      { 
+        settingKey: "app_version", 
+        settingValue: "1.0.0", 
+        settingType: "text", 
+        category: "general", 
+        description: "Application version", 
+        isPublic: true, 
+        lastUpdated: now 
+      },
+      {
+        settingKey: "payment_enabled",
+        settingValue: "false",
+        settingType: "boolean",
+        category: "payment",
+        description: "Enable payment requirement for builds",
+        isPublic: true,
+        lastUpdated: now
+      },
+      {
+        settingKey: "default_payment_amount",
+        settingValue: "500",
+        settingType: "number",
+        category: "payment",
+        description: "Default payment amount in cents (500 = $5.00)",
+        isPublic: true,
+        lastUpdated: now
+      }
+    ];
+    
+    for (const setting of defaultSettings) {
+      const id = this.systemSettingIdCounter++;
+      this.systemSettings.set(id, { ...setting, id, updatedBy: null });
+    }
   }
   
   // Initialize default coupon codes as specified (GLOBALX, MAKERAPP, DISCOUNT5)
@@ -371,6 +447,294 @@ export class MemStorage implements IStorage {
     };
     this.users.set(userId, updatedUser);
     return updatedUser;
+  }
+  
+  // Analytics methods
+  async getAnalyticsForDate(date: string): Promise<Analytics | undefined> {
+    return Array.from(this.analytics.values()).find(
+      (analytics) => analytics.date.split('T')[0] === date.split('T')[0]
+    );
+  }
+  
+  async createAnalytics(insertAnalytics: InsertAnalytics): Promise<Analytics> {
+    const id = this.analyticsIdCounter++;
+    const analytics: Analytics = {
+      ...insertAnalytics,
+      id
+    };
+    this.analytics.set(id, analytics);
+    return analytics;
+  }
+  
+  async updateAnalytics(id: number, analyticsUpdate: Partial<Analytics>): Promise<Analytics | undefined> {
+    const analytics = this.analytics.get(id);
+    if (!analytics) return undefined;
+    
+    const updatedAnalytics = { ...analytics, ...analyticsUpdate };
+    this.analytics.set(id, updatedAnalytics);
+    return updatedAnalytics;
+  }
+  
+  async getAnalyticsRange(startDate: string, endDate: string): Promise<Analytics[]> {
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    
+    return Array.from(this.analytics.values()).filter(analytics => {
+      const date = new Date(analytics.date).getTime();
+      return date >= start && date <= end;
+    });
+  }
+  
+  // Transaction methods
+  async getTransaction(id: number): Promise<Transaction | undefined> {
+    return this.transactions.get(id);
+  }
+  
+  async getTransactionsByUserId(userId: number): Promise<Transaction[]> {
+    return Array.from(this.transactions.values()).filter(
+      (transaction) => transaction.userId === userId
+    );
+  }
+  
+  async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
+    const id = this.transactionIdCounter++;
+    const now = new Date().toISOString();
+    const transaction: Transaction = {
+      ...insertTransaction,
+      id,
+      createdAt: now
+    };
+    this.transactions.set(id, transaction);
+    return transaction;
+  }
+  
+  async updateTransaction(id: number, transactionUpdate: Partial<Transaction>): Promise<Transaction | undefined> {
+    const transaction = this.transactions.get(id);
+    if (!transaction) return undefined;
+    
+    const updatedTransaction = { ...transaction, ...transactionUpdate };
+    this.transactions.set(id, updatedTransaction);
+    return updatedTransaction;
+  }
+  
+  async getAllTransactions(limit?: number, offset: number = 0): Promise<Transaction[]> {
+    const transactions = Array.from(this.transactions.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(offset);
+    
+    return limit ? transactions.slice(0, limit) : transactions;
+  }
+  
+  // Build logs methods
+  async getBuildLog(id: number): Promise<BuildLog | undefined> {
+    return this.buildLogs.get(id);
+  }
+  
+  async getBuildLogsByProjectId(projectId: number): Promise<BuildLog[]> {
+    return Array.from(this.buildLogs.values()).filter(
+      (log) => log.projectId === projectId
+    );
+  }
+  
+  async getBuildLogsByUserId(userId: number): Promise<BuildLog[]> {
+    return Array.from(this.buildLogs.values()).filter(
+      (log) => log.userId === userId
+    );
+  }
+  
+  async createBuildLog(insertBuildLog: InsertBuildLog): Promise<BuildLog> {
+    const id = this.buildLogIdCounter++;
+    const now = new Date().toISOString();
+    const buildLog: BuildLog = {
+      ...insertBuildLog,
+      id,
+      startTime: now,
+      endTime: null,
+      duration: null
+    };
+    this.buildLogs.set(id, buildLog);
+    return buildLog;
+  }
+  
+  async updateBuildLog(id: number, buildLogUpdate: Partial<BuildLog>): Promise<BuildLog | undefined> {
+    const buildLog = this.buildLogs.get(id);
+    if (!buildLog) return undefined;
+    
+    const updatedBuildLog = { ...buildLog, ...buildLogUpdate };
+    this.buildLogs.set(id, updatedBuildLog);
+    return updatedBuildLog;
+  }
+  
+  async getAllBuildLogs(limit?: number, offset: number = 0): Promise<BuildLog[]> {
+    const logs = Array.from(this.buildLogs.values())
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+      .slice(offset);
+    
+    return limit ? logs.slice(0, limit) : logs;
+  }
+  
+  // User activity logs methods
+  async getUserActivityLog(id: number): Promise<UserActivityLog | undefined> {
+    return this.userActivityLogs.get(id);
+  }
+  
+  async getUserActivityLogsByUserId(userId: number): Promise<UserActivityLog[]> {
+    return Array.from(this.userActivityLogs.values()).filter(
+      (log) => log.userId === userId
+    );
+  }
+  
+  async createUserActivityLog(insertActivityLog: InsertUserActivityLog): Promise<UserActivityLog> {
+    const id = this.userActivityLogIdCounter++;
+    const now = new Date().toISOString();
+    const activityLog: UserActivityLog = {
+      ...insertActivityLog,
+      id,
+      timestamp: now
+    };
+    this.userActivityLogs.set(id, activityLog);
+    return activityLog;
+  }
+  
+  async getAllUserActivityLogs(limit?: number, offset: number = 0): Promise<UserActivityLog[]> {
+    const logs = Array.from(this.userActivityLogs.values())
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(offset);
+    
+    return limit ? logs.slice(0, limit) : logs;
+  }
+  
+  // System settings methods
+  async getSystemSetting(key: string): Promise<SystemSetting | undefined> {
+    return Array.from(this.systemSettings.values()).find(
+      (setting) => setting.settingKey === key
+    );
+  }
+  
+  async getSystemSettingsByCategory(category: string): Promise<SystemSetting[]> {
+    return Array.from(this.systemSettings.values()).filter(
+      (setting) => setting.category === category
+    );
+  }
+  
+  async createSystemSetting(insertSetting: InsertSystemSetting): Promise<SystemSetting> {
+    const id = this.systemSettingIdCounter++;
+    const now = new Date().toISOString();
+    const setting: SystemSetting = {
+      ...insertSetting,
+      id,
+      lastUpdated: now
+    };
+    this.systemSettings.set(id, setting);
+    return setting;
+  }
+  
+  async updateSystemSetting(id: number, settingUpdate: Partial<SystemSetting>): Promise<SystemSetting | undefined> {
+    const setting = this.systemSettings.get(id);
+    if (!setting) return undefined;
+    
+    const now = new Date().toISOString();
+    const updatedSetting = { 
+      ...setting, 
+      ...settingUpdate,
+      lastUpdated: now
+    };
+    this.systemSettings.set(id, updatedSetting);
+    return updatedSetting;
+  }
+  
+  async getAllSystemSettings(): Promise<SystemSetting[]> {
+    return Array.from(this.systemSettings.values());
+  }
+  
+  // Dashboard stats methods
+  async getDashboardStats(): Promise<any> {
+    const totalUsers = this.users.size;
+    const totalProjects = this.projects.size;
+    const totalAppBuilds = this.buildLogs.size;
+    
+    // Count app builds by platform
+    const androidBuilds = Array.from(this.buildLogs.values()).filter(
+      (log) => log.platform === "android"
+    ).length;
+    
+    const iosBuilds = Array.from(this.buildLogs.values()).filter(
+      (log) => log.platform === "ios"
+    ).length;
+    
+    // Count projects by source type
+    const websiteTypeProjects = Array.from(this.projects.values()).filter(
+      (project) => project.sourceType === "website"
+    ).length;
+    
+    const htmlTypeProjects = Array.from(this.projects.values()).filter(
+      (project) => project.sourceType === "html"
+    ).length;
+    
+    const pdfTypeProjects = Array.from(this.projects.values()).filter(
+      (project) => project.sourceType === "pdf"
+    ).length;
+    
+    const codeTypeProjects = Array.from(this.projects.values()).filter(
+      (project) => project.sourceType === "code"
+    ).length;
+    
+    // Calculate total revenue
+    const totalRevenue = Array.from(this.transactions.values()).reduce(
+      (sum, transaction) => sum + transaction.amount,
+      0
+    );
+    
+    // Get recent build logs
+    const recentBuildLogs = Array.from(this.buildLogs.values())
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+      .slice(0, 10);
+    
+    // Get recent user activity
+    const recentUserActivity = Array.from(this.userActivityLogs.values())
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10);
+    
+    // Get recent transactions
+    const recentTransactions = Array.from(this.transactions.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+    
+    // Get user growth (last 7 days)
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const newUsers = Array.from(this.users.values()).filter(
+      (user) => new Date(user.createdAt).getTime() >= sevenDaysAgo.getTime()
+    ).length;
+    
+    return {
+      totalUsers,
+      totalProjects,
+      totalAppBuilds,
+      androidBuilds,
+      iosBuilds,
+      websiteTypeProjects,
+      htmlTypeProjects,
+      pdfTypeProjects,
+      codeTypeProjects,
+      totalRevenue,
+      recentBuildLogs,
+      recentUserActivity,
+      recentTransactions,
+      newUsers,
+      
+      // Calculate KPIs and metrics
+      metrics: {
+        averageBuildsPerUser: totalUsers > 0 ? totalAppBuilds / totalUsers : 0,
+        averageProjectsPerUser: totalUsers > 0 ? totalProjects / totalUsers : 0,
+        averageRevenuePerUser: totalUsers > 0 ? totalRevenue / totalUsers : 0,
+        buildSuccessRate: totalAppBuilds > 0 ? 
+          Array.from(this.buildLogs.values()).filter(log => log.status === "success").length / totalAppBuilds : 0,
+        userGrowthRate: totalUsers > 0 ? newUsers / totalUsers : 0
+      }
+    };
   }
 }
 
