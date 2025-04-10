@@ -79,6 +79,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
   });
+  
+  // API endpoint to verify APK structure
+  app.get("/api/verify-apk/:filename", async (req: Request, res: Response) => {
+    try {
+      const filename = req.params.filename;
+      if (!filename.endsWith('.apk')) {
+        return res.status(400).json({ error: "Invalid file - must be an APK file" });
+      }
+      
+      // Find the APK file
+      const possiblePaths = [
+        path.join(process.cwd(), 'dist', 'public', 'downloads', filename),
+        path.join(process.cwd(), 'server', 'public', 'downloads', filename),
+        path.join(process.cwd(), 'downloads', filename)
+      ];
+      
+      let apkPath = null;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          apkPath = p;
+          break;
+        }
+      }
+      
+      if (!apkPath) {
+        return res.status(404).json({ error: "APK file not found" });
+      }
+      
+      // Read the APK file to analyze it
+      const stats = fs.statSync(apkPath);
+      const fileSize = stats.size;
+      
+      // This is a simplified inspection - we should actually unzip and inspect
+      // For now, we'll just validate the file size which is a common issue
+      const fileSizeMB = fileSize / (1024 * 1024);
+      
+      let status = "unknown";
+      let issues = [];
+      
+      if (fileSizeMB < 1.0) {
+        status = "warning";
+        issues.push("APK file size is less than 1MB, which may cause installation issues on some Android devices");
+      } else if (fileSizeMB >= 1.5) {
+        status = "good";
+      } else {
+        status = "acceptable";
+        issues.push("APK file size is smaller than recommended 1.5MB, but may still work on most devices");
+      }
+      
+      // Check if the file has a correct APK structure (basic validation)
+      try {
+        // Import JSZip to analyze the APK structure
+        const JSZip = require('jszip');
+        const data = fs.readFileSync(apkPath);
+        const zip = await JSZip.loadAsync(data);
+        
+        // Check for critical APK components
+        const hasManifest = zip.files['AndroidManifest.xml'] !== undefined;
+        const hasClasses = zip.files['classes.dex'] !== undefined;
+        const hasResources = zip.files['resources.arsc'] !== undefined;
+        const hasMetaInf = zip.files['META-INF/'] !== undefined;
+        
+        if (!hasManifest) {
+          status = "error";
+          issues.push("Missing AndroidManifest.xml which is required for APK installation");
+        }
+        
+        if (!hasClasses) {
+          status = "error";
+          issues.push("Missing classes.dex which contains essential application code");
+        }
+        
+        if (!hasResources) {
+          status = "warning";
+          issues.push("Missing resources.arsc which may cause resource loading errors");
+        }
+        
+        if (!hasMetaInf) {
+          status = "warning";
+          issues.push("Missing META-INF directory which contains signature files");
+        }
+        
+        // Get some file structure info
+        const fileList = Object.keys(zip.files).slice(0, 20); // First 20 files for brevity
+        
+        res.json({
+          filename,
+          path: apkPath,
+          size: {
+            bytes: fileSize,
+            formatted: `${fileSizeMB.toFixed(2)} MB`
+          },
+          status,
+          issues,
+          structure: {
+            hasManifest,
+            hasClasses,
+            hasResources,
+            hasMetaInf,
+            fileList
+          }
+        });
+      } catch (error) {
+        return res.status(500).json({
+          error: "Failed to analyze APK structure",
+          message: error instanceof Error ? error.message : String(error),
+          filename,
+          path: apkPath,
+          size: {
+            bytes: fileSize,
+            formatted: `${fileSizeMB.toFixed(2)} MB`
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error verifying APK:", error);
+      res.status(500).json({
+        error: "Server error",
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   // Test download route
   app.get("/api/test-download", (req: Request, res: Response) => {
@@ -105,22 +227,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Direct APK download route for the Networthcalc app
   app.get("/api/download-networthcalc", (req: Request, res: Response) => {
-    const apkPath = path.join(process.cwd(), 'dist', 'public', 'downloads', 'Networthcalc_v1.0.apk');
+    const apkFilename = 'Networthcalc_v1.0.apk';
     
-    // Check if file exists
-    if (fs.existsSync(apkPath)) {
-      console.log(`Networthcalc APK found at ${apkPath}`);
-      res.download(apkPath, 'Networthcalc_v1.0.apk');
-    } else {
-      // Try alternate path
-      const alternateApkPath = path.join(process.cwd(), 'server', 'public', 'downloads', 'Networthcalc_v1.0.apk');
-      if (fs.existsSync(alternateApkPath)) {
-        console.log(`Networthcalc APK found at alternate path ${alternateApkPath}`);
-        res.download(alternateApkPath, 'Networthcalc_v1.0.apk');
+    // Try different possible locations for the APK file
+    const possiblePaths = [
+      path.join(process.cwd(), 'dist', 'public', 'downloads', apkFilename),
+      path.join(process.cwd(), 'server', 'public', 'downloads', apkFilename),
+      path.join(process.cwd(), 'downloads', apkFilename),
+      path.join(process.cwd(), 'public', 'downloads', apkFilename),
+      path.join(process.cwd(), 'builds', 'downloads', apkFilename)
+    ];
+    
+    // Find the first path that exists
+    let foundPath = null;
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        console.log(`Found Networthcalc APK file at: ${p}`);
+        foundPath = p;
+        break;
       } else {
-        console.log(`Networthcalc APK not found at either path`);
-        res.status(404).json({ error: "Networthcalc APK file not found" });
+        console.log(`APK not found at: ${p}`);
       }
+    }
+    
+    if (foundPath) {
+      // Set file download headers
+      console.log(`Sending Networthcalc APK file: ${foundPath}`);
+      
+      // Add cache headers to improve download reliability
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', `attachment; filename="Networthcalc_v1.0.apk"`);
+      
+      // Send the file
+      res.download(foundPath, apkFilename);
+    } else {
+      console.error(`Could not find Networthcalc APK file in any of the expected locations`);
+      res.status(404).json({ 
+        error: "APK not found", 
+        message: "Could not find the Networthcalc APK file in any expected location",
+        checkedPaths: possiblePaths
+      });
     }
   });
 
@@ -708,7 +855,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Set proper headers for file download
       const apkDownloadName = `${project.name.replace(/\s+/g, '_')}_v1.0.apk`;
-      res.download(apkPath, apkDownloadName);
+      
+      // Try different possible locations for the APK file
+      const possiblePaths = [
+        apkPath, // Primary path from regular build process
+        path.join(process.cwd(), 'server', 'public', 'downloads', apkDownloadName), // Alternate server path
+        path.join(process.cwd(), 'downloads', apkDownloadName), // Root downloads folder
+        path.join(process.cwd(), 'dist', 'public', 'downloads', apkDownloadName) // Dist public folder
+      ];
+      
+      // Find the first path that exists
+      let foundPath = null;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          console.log(`Found APK file at: ${p}`);
+          foundPath = p;
+          break;
+        }
+      }
+      
+      if (foundPath) {
+        // Log that we're sending the file
+        console.log(`Sending APK file: ${foundPath} as ${apkDownloadName}`);
+        res.download(foundPath, apkDownloadName);
+      } else {
+        // Log that we couldn't find the file
+        console.error(`Could not find APK file in any of the expected locations for project ${projectId}`);
+        res.status(404).json({ 
+          error: "APK not found", 
+          message: "Could not find the APK file in any expected location",
+          checkedPaths: possiblePaths
+        });
+      }
     } catch (error) {
       console.error(`Error downloading APK: ${(error as Error).message}`);
       res.status(500).json({ 
