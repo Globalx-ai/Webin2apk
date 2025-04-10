@@ -1009,18 +1009,54 @@ It requires proper Apple Developer certificate signing for installation on iOS d
         });
       }
       
-      // In a real implementation, this would:
-      // 1. Validate the GitHub token
-      // 2. Create a new repository with the given name
-      // 3. Push the app code to the repository
-      // 4. Update the project with the repository URL
+      // Fetch user info to validate token
+      const validateTokenResponse = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
       
-      // For now, simulate success
-      const repoUrl = `https://github.com/${req.user?.username || 'user'}/${repoName}`;
+      if (!validateTokenResponse.ok) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid GitHub token"
+        });
+      }
+      
+      const githubUserData = await validateTokenResponse.json();
+      const githubUsername = githubUserData.login;
+      
+      // Create a new repository
+      const createRepoResponse = await fetch('https://api.github.com/user/repos', {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: repoName,
+          description: description || `Mobile app created with Webin2Apk for project ${projectId}`,
+          private: isPrivate,
+          auto_init: true
+        })
+      });
+      
+      if (!createRepoResponse.ok) {
+        const errorData = await createRepoResponse.json();
+        return res.status(createRepoResponse.status).json({
+          success: false,
+          message: `Failed to create GitHub repository: ${errorData.message || 'Unknown error'}`
+        });
+      }
+      
+      const repoData = await createRepoResponse.json();
+      const repoUrl = repoData.html_url;
       
       // Store the GitHub token with the user for future use
       if (req.user) {
-        await storage.updateUserGithubToken(req.user.id, githubToken, req.user.username || '');
+        await storage.updateUserGithubToken(req.user.id, githubToken, githubUsername);
       }
       
       // Update the project with the repository URL
@@ -1037,7 +1073,7 @@ It requires proper Apple Developer certificate signing for installation on iOS d
       console.error("GitHub integration error:", error);
       res.status(500).json({ 
         success: false, 
-        message: "Failed to create GitHub repository"
+        message: `Failed to create GitHub repository: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     }
   });
