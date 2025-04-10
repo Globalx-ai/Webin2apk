@@ -991,8 +991,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAppConfig(insertConfig: InsertAppConfig): Promise<AppConfig> {
+    // Clean up the data to match the database schema
     const newConfig = { 
-      ...insertConfig, 
+      projectId: insertConfig.projectId,
       enableJavaScript: insertConfig.enableJavaScript ?? true,
       enableDomStorage: insertConfig.enableDomStorage ?? true,
       enableZoom: insertConfig.enableZoom ?? false,
@@ -1000,7 +1001,20 @@ export class DatabaseStorage implements IStorage {
       orientation: insertConfig.orientation || "auto",
       offlineMode: insertConfig.offlineMode || "none",
       permissions: insertConfig.permissions || [],
-      customCodeAiSuggestions: insertConfig.customCodeAiSuggestions || {}
+      customCss: insertConfig.customCss || null,
+      splashScreenEnabled: insertConfig.splashScreenEnabled ?? false,
+      splashScreenDuration: insertConfig.splashScreenDuration || 3000,
+      adMobEnabled: insertConfig.adMobEnabled ?? false,
+      adMobAppId: insertConfig.adMobAppId || null,
+      adMobBannerId: insertConfig.adMobBannerId || null,
+      adMobInterstitialId: insertConfig.adMobInterstitialId || null,
+      // Handle the naming inconsistency between schema and database
+      custom_code_enabled: insertConfig.includeCustomCode ?? false,
+      include_custom_code: insertConfig.includeCustomCode ?? false,
+      custom_code_verified: insertConfig.customCodeVerified ?? false,
+      custom_code_language: insertConfig.customCodeLanguage || "java",
+      custom_code_content: insertConfig.customCodeContent || null,
+      custom_code_ai_suggestions: insertConfig.customCodeAiSuggestions || {}
     };
     
     const [config] = await db.insert(appConfigs).values(newConfig).returning();
@@ -1158,7 +1172,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(transactions)
       .where(eq(transactions.userId, userId))
-      .orderBy(desc(transactions.timestamp));
+      .orderBy(desc(transactions.createdAt));
   }
   
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
