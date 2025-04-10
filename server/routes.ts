@@ -1826,7 +1826,7 @@ It requires proper Apple Developer certificate signing for installation on iOS d
       
       const updatedSetting = await storage.updateSystemSetting(settingId, { 
         settingValue,
-        updatedBy: req.user.id
+        updatedBy: req.user?.id || 0
       });
       
       if (!updatedSetting) {
@@ -1857,6 +1857,11 @@ It requires proper Apple Developer certificate signing for installation on iOS d
       
       if (existingSetting) {
         return res.status(409).json({ error: "Setting with this key already exists" });
+      }
+      
+      // Since we're using isAdmin middleware, req.user should be defined, but add a safeguard
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized. User information not available." });
       }
       
       const newSetting = await storage.createSystemSetting({
