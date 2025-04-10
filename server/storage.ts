@@ -1177,9 +1177,21 @@ export class DatabaseStorage implements IStorage {
   
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const now = new Date().toISOString();
+    // Make sure we have the required fields based on the database schema
     const newTransaction = {
-      ...insertTransaction,
-      timestamp: insertTransaction.timestamp || now
+      userId: insertTransaction.userId,
+      type: insertTransaction.type || 'payment',
+      status: insertTransaction.status || 'completed',
+      amount: insertTransaction.amount || 0,
+      paymentMethod: insertTransaction.paymentMethod || 'card',
+      description: insertTransaction.description || null,
+      paymentIntentId: insertTransaction.paymentIntentId || null,
+      projectId: insertTransaction.projectId || null,
+      invoiceId: insertTransaction.invoiceId || null,
+      receiptUrl: insertTransaction.receiptUrl || null,
+      currency: insertTransaction.currency || 'usd',
+      metadata: insertTransaction.metadata || {},
+      createdAt: now
     };
     
     const [transaction] = await db
@@ -1204,7 +1216,7 @@ export class DatabaseStorage implements IStorage {
     let query = db
       .select()
       .from(transactions)
-      .orderBy(desc(transactions.timestamp))
+      .orderBy(desc(transactions.createdAt))
       .offset(offset);
     
     if (limit) {
@@ -1301,9 +1313,14 @@ export class DatabaseStorage implements IStorage {
   
   async createUserActivityLog(insertActivityLog: InsertUserActivityLog): Promise<UserActivityLog> {
     const now = new Date().toISOString();
+    // Ensure all required fields are set
     const newActivityLog = {
-      ...insertActivityLog,
-      timestamp: insertActivityLog.timestamp || now
+      userId: insertActivityLog.userId,
+      action: insertActivityLog.action,
+      timestamp: now,
+      ipAddress: insertActivityLog.ipAddress || null,
+      userAgent: insertActivityLog.userAgent || null,
+      details: insertActivityLog.details || {}
     };
     
     const [activityLog] = await db
