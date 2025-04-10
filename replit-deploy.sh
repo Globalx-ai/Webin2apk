@@ -44,5 +44,14 @@ cat > .netlify/state.json << 'EOL'
 }
 EOL
 
+# Ensure _redirects file is in the build output
+echo "Copying _redirects file to dist directory..."
+cp client/public/_redirects dist/ 2>/dev/null || true
+
+# Create a _redirects file if it wasn't copied
+echo "Creating fallback _redirects file in dist directory..."
+echo "/api/*  /.netlify/functions/api/:splat  200" > dist/_redirects
+echo "/*    /index.html   200" >> dist/_redirects
+
 echo "Deployment preparation complete. You can now deploy using:"
 echo "npx netlify deploy --prod"
