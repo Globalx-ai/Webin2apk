@@ -31,7 +31,7 @@ interface AppInfo {
  * @returns Buffer containing the APK data
  */
 export async function createRealisticApkFile(appInfo: AppInfo): Promise<Buffer> {
-  console.log("Starting APK generation with enhanced structure...");
+  console.log(`Starting APK generation for ${appInfo.name} (${appInfo.packageName})...`);
   // Add artificial delay to give impression of complex processing
   await delay(3000);
   
