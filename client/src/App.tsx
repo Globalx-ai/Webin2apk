@@ -14,6 +14,7 @@ import TermsPage from "@/pages/TermsPage";
 import Settings from "@/pages/Settings";
 import AdminPanel from "@/pages/AdminPanel";
 import AuthPage from "@/pages/auth-page";
+import DownloadPage from "@/pages/DownloadPage";
 import MainLayout from "@/components/layout/MainLayout";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/about" component={AboutPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
+      <Route path="/download" component={DownloadPage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -131,9 +131,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if the file has a correct APK structure (basic validation)
       try {
         // Import JSZip to analyze the APK structure
-        const JSZip = require('jszip');
+        const JSZip = await import('jszip');
         const data = fs.readFileSync(apkPath);
-        const zip = await JSZip.loadAsync(data);
+        const zip = await new JSZip.default().loadAsync(data);
         
         // Check for critical APK components
         const hasManifest = zip.files['AndroidManifest.xml'] !== undefined;

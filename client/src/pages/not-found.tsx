@@ -53,6 +53,12 @@ export default function NotFound() {
                 ✓ Enhanced with random data padding<br/>
                 ✓ Should install correctly on Android devices
               </div>
+              
+              <div className="mt-4 pt-3 border-t border-gray-200">
+                <Link href="/download" className="text-sm text-blue-600 hover:underline">
+                  View All Downloads &amp; Verify APK Structure
+                </Link>
+              </div>
             </div>
           </div>
         </CardContent>
