@@ -11,9 +11,8 @@ import { apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { PDFViewer } from '@/components/pdf-viewer/PDFViewer';
 
-interface ProjectDetailProps {}
-
-const ProjectDetail: React.FC<ProjectDetailProps> = () => {
+// No props needed for this component since it gets the project ID from the URL
+const ProjectDetail: React.FC = () => {
   const [, params] = useRoute('/projects/:id');
   const projectId = params?.id ? parseInt(params.id) : null;
   const { toast } = useToast();
@@ -426,7 +425,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = () => {
                       <div>
                         <h3 className="font-medium text-sm mb-2">Permissions</h3>
                         <div className="flex flex-wrap gap-2">
-                          {appConfig.permissions?.map((permission, index) => (
+                          {appConfig.permissions?.map((permission: string, index: number) => (
                             <span key={index} className="px-2 py-1 bg-gray-100 rounded-full text-xs">
                               {permission}
                             </span>

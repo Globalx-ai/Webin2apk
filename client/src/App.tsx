@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import NewConversion from "@/pages/NewConversion";
 import Projects from "@/pages/Projects";
+import ProjectDetail from "@/pages/ProjectDetail";
 import Documentation from "@/pages/Documentation";
 import AboutPage from "@/pages/AboutPage";
 import PrivacyPage from "@/pages/PrivacyPage";
@@ -23,6 +24,9 @@ function Router() {
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/new-conversion" component={NewConversion} />
       <ProtectedRoute path="/projects" component={Projects} />
+      <Route path="/projects/:id">
+        <ProjectDetail />
+      </Route>
       <ProtectedRoute path="/documentation" component={Documentation} />
       <ProtectedRoute path="/settings" component={Settings} />
       <ProtectedRoute path="/admin" component={AdminPanel} />

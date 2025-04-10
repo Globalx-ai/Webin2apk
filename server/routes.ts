@@ -1605,6 +1605,58 @@ It requires proper Apple Developer certificate signing for installation on iOS d
     }
   });
   
+  // Get build logs for a specific project
+  app.get("/api/projects/:id/build-logs", async (req: Request, res: Response) => {
+    try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const projectId = parseInt(req.params.id);
+      if (isNaN(projectId)) {
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      // Get the project to check ownership
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if the project belongs to the current user
+      if (project.userId !== req.user!.id && req.user!.role !== 'admin') {
+        return res.status(403).json({ error: "You don't have permission to access this project" });
+      }
+      
+      // Get the latest build log for this project
+      const buildLogs = await storage.getBuildLogsByProjectId(projectId);
+      
+      if (buildLogs.length === 0) {
+        return res.json({ 
+          status: project.status,
+          logs: "No build logs found for this project." 
+        });
+      }
+      
+      // Return the most recent build log
+      const latestBuildLog = buildLogs.sort((a, b) => 
+        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      )[0];
+      
+      res.json({ 
+        status: latestBuildLog.status || project.status,
+        logs: latestBuildLog.logs || "Build in progress..." 
+      });
+    } catch (error) {
+      console.error("Error fetching project build logs:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch build logs", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
   // Get user activity logs (for admin)
   app.get("/api/admin/activity-logs", isAdmin, async (req: Request, res: Response) => {
     try {
