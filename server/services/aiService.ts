@@ -40,10 +40,18 @@ export async function validateCode(codeData: CustomCodeData): Promise<CodeVerifi
     const { language, content } = codeData;
     const codeContent = content;
     
+    // Basic validation first
+    const basicValidation = performBasicCodeValidation(language, codeContent);
+    
+    // If basic validation shows critical issues, return those immediately
+    if (basicValidation.issues.some(issue => issue.severity === 'error')) {
+      return basicValidation;
+    }
+    
     // Check for API quota limit
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "quota_reached") {
-      console.log("Using fallback code validation due to API quota limitation");
-      return performBasicCodeValidation(language, codeContent);
+      console.log("Using enhanced fallback code validation due to API quota limitation");
+      return enhancedFallbackValidation(language, codeContent, basicValidation);
     }
     
     // Craft a prompt for code validation
@@ -98,10 +106,10 @@ Provide the response in JSON format with the following structure:
     } catch (error) {
       const aiError = error as Error;
       console.error('OpenAI API error:', aiError);
-      // If we hit quota limits, use the fallback
+      // If we hit quota limits, use the enhanced fallback
       if (aiError.message && aiError.message.includes("quota")) {
-        console.log("API quota reached, using fallback code validation");
-        return performBasicCodeValidation(language, codeContent);
+        console.log("API quota reached, using enhanced fallback validation");
+        return enhancedFallbackValidation(language, codeContent, basicValidation);
       }
       throw aiError;
     }
@@ -112,8 +120,9 @@ Provide the response in JSON format with the following structure:
       const { language, content } = codeData;
       const codeContent = content;
       
-      // Fallback to basic validation
-      return performBasicCodeValidation(language, codeContent);
+      // Use enhanced fallback if possible
+      return enhancedFallbackValidation(language, codeContent, 
+        performBasicCodeValidation(language, codeContent));
     } catch (fallbackError) {
       return {
         isValid: false,
@@ -239,6 +248,12 @@ export async function completeCode(
   context: string
 ): Promise<CodeCompletionResult> {
   try {
+    // Check for API quota limit
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "quota_reached") {
+      console.log("Using fallback code completion due to API quota limitation");
+      return provideFallbackCodeCompletion(language, partialCode, context);
+    }
+    
     // Craft a prompt for code completion
     const prompt = `Please complete the following ${language} code for an Android application. 
 The code will be used in the following context: ${context}
@@ -254,25 +269,242 @@ Provide the response in JSON format with the following structure:
   "explanation": "explanation of the completed code and how it works"
 }`;
 
-    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-    });
+    try {
+      // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
 
-    // Parse the AI response
-    const responseText = response.choices[0].message.content || "{}";
-    const result = JSON.parse(responseText);
-    
-    return {
-      completedCode: result.completedCode || "",
-      explanation: result.explanation || "No explanation provided",
-    };
+      // Parse the AI response
+      const responseText = response.choices[0].message.content || "{}";
+      const result = JSON.parse(responseText);
+      
+      return {
+        completedCode: result.completedCode || "",
+        explanation: result.explanation || "No explanation provided",
+      };
+    } catch (error) {
+      const aiError = error as Error;
+      console.error('OpenAI API error:', aiError);
+      // If we hit quota limits, use the fallback
+      if (aiError.message && aiError.message.includes("quota")) {
+        console.log("API quota reached, using fallback code completion");
+        return provideFallbackCodeCompletion(language, partialCode, context);
+      }
+      throw aiError;
+    }
   } catch (error) {
     console.error('Error completing code:', error);
-    throw new Error(`Failed to auto-complete code: ${(error as Error).message}`);
+    // Try fallback as last resort
+    try {
+      return provideFallbackCodeCompletion(language, partialCode, context);
+    } catch (fallbackError) {
+      throw new Error(`Failed to auto-complete code: ${(error as Error).message}`);
+    }
   }
+}
+
+/**
+ * Provides basic code completion without AI
+ * Used when OpenAI API is unavailable or quota is reached
+ * 
+ * @param language Programming language
+ * @param partialCode Partial code to complete
+ * @param context Additional context
+ * @returns Basic completed code with explanation
+ */
+function provideFallbackCodeCompletion(
+  language: string,
+  partialCode: string,
+  context: string
+): CodeCompletionResult {
+  // Define common code templates based on language
+  const templates: Record<string, { code: string, explanation: string }> = {
+    java: {
+      code: `
+public class AndroidHelper {
+    private Context context;
+    
+    public AndroidHelper(Context context) {
+        this.context = context;
+    }
+    
+    public void showToast(String message) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+    }
+    
+    public void navigateToActivity(Class<?> activityClass) {
+        Intent intent = new Intent(context, activityClass);
+        context.startActivity(intent);
+    }
+    
+    public boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) 
+            context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+}`,
+      explanation: "This is a helper class for Android that provides common functionality like showing toasts, navigating between activities, and checking network connectivity."
+    },
+    kotlin: {
+      code: `
+class AndroidHelper(private val context: Context) {
+    fun showToast(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
+    
+    fun navigateToActivity(activityClass: Class<*>) {
+        val intent = Intent(context, activityClass)
+        context.startActivity(intent)
+    }
+    
+    fun isNetworkAvailable(): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetworkInfo = connectivityManager.activeNetworkInfo
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected
+    }
+}`,
+      explanation: "This is a helper class for Android written in Kotlin that provides common functionality like showing toasts, navigating between activities, and checking network connectivity."
+    },
+    javascript: {
+      code: `
+class WebViewHelper {
+  constructor() {
+    this.isReady = false;
+  }
+
+  init() {
+    document.addEventListener('DOMContentLoaded', () => {
+      this.isReady = true;
+      console.log('WebView Helper initialized');
+    });
+    
+    // Handle messages from native app
+    window.addEventListener('message', (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        this.handleMessage(message);
+      } catch (e) {
+        console.error('Error parsing message from native app:', e);
+      }
+    });
+  }
+
+  handleMessage(message) {
+    switch(message.type) {
+      case 'DATA':
+        this.handleData(message.payload);
+        break;
+      case 'COMMAND':
+        this.executeCommand(message.payload);
+        break;
+      default:
+        console.log('Unknown message type:', message.type);
+    }
+  }
+
+  handleData(data) {
+    console.log('Received data from native app:', data);
+    // Process data here
+  }
+
+  executeCommand(command) {
+    console.log('Executing command:', command);
+    // Execute command here
+  }
+
+  sendToNative(message) {
+    // Send message to Android/iOS native app
+    try {
+      const messageString = JSON.stringify(message);
+      
+      // For Android
+      if (window.AndroidInterface) {
+        window.AndroidInterface.receiveMessage(messageString);
+      }
+      
+      // For iOS
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.iOSInterface) {
+        window.webkit.messageHandlers.iOSInterface.postMessage(messageString);
+      }
+    } catch (e) {
+      console.error('Error sending message to native app:', e);
+    }
+  }
+}
+
+// Initialize the helper
+const webViewHelper = new WebViewHelper();
+webViewHelper.init();`,
+      explanation: "This JavaScript code creates a WebViewHelper class that facilitates communication between a web page and a native Android/iOS app through a WebView. It handles message passing in both directions and provides methods to process commands and data."
+    }
+  };
+
+  // Check if we have a template for the requested language
+  const template = templates[language] || templates.javascript;
+  
+  // Determine if the partial code is trying to create a class
+  const isCreatingClass = partialCode.includes("class") || partialCode.includes("interface");
+  
+  // Attempt to create a completion based on the partial code
+  let completedCode = partialCode;
+  
+  // If the partial code looks like it's trying to create a class/method, add common patterns
+  if (isCreatingClass) {
+    // If the partial code doesn't end with a closing bracket, it might be incomplete
+    if (!partialCode.trim().endsWith("}")) {
+      completedCode += "\n    // Methods added by fallback code completion\n";
+      
+      if (language === "java" || language === "kotlin") {
+        completedCode += `
+    public void initialize() {
+        // Initialization code here
+        System.out.println("Initialized");
+    }
+    
+    public String getData() {
+        // Code to retrieve data
+        return "Sample data";
+    }
+}`;
+      } else {
+        completedCode += `
+    initialize() {
+        // Initialization code here
+        console.log("Initialized");
+    }
+    
+    getData() {
+        // Code to retrieve data
+        return "Sample data";
+    }
+}`;
+      }
+    }
+  } else {
+    // If it doesn't look like a class definition, append a helper function
+    if (language === "java" || language === "kotlin") {
+      completedCode += `\n\n// Helper method added by fallback completion
+public void processData(String data) {
+    // Process data here
+    System.out.println("Processing: " + data);
+}\n`;
+    } else {
+      completedCode += `\n\n// Helper function added by fallback completion
+function processData(data) {
+    // Process data here
+    console.log("Processing:", data);
+}\n`;
+    }
+  }
+  
+  return {
+    completedCode,
+    explanation: `This code completion was generated by a fallback mechanism due to API limitations. The code provides basic functionality related to ${context}. You may need to modify it to fit your specific requirements.`
+  };
 }
 
 /**
@@ -283,25 +515,95 @@ Provide the response in JSON format with the following structure:
  */
 export async function analyzePdf(pdfUrl: string): Promise<any> {
   try {
+    // Check for API quota limit
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "quota_reached") {
+      console.log("Using fallback PDF analysis due to API quota limitation");
+      return provideFallbackPdfAnalysis(pdfUrl);
+    }
+    
     // Craft a prompt for PDF analysis
     const prompt = `Analyze the structure of a PDF document at ${pdfUrl} for conversion into an Android app.
 Identify the main sections, layout, and content types for optimal display in a mobile app format.
 Consider how the PDF content should be organized in a WebView-based application.`;
 
-    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-    });
+    try {
+      // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+      });
 
-    const content = response.choices[0].message.content;
-    return {
-      analysis: content ? content : "No analysis available",
-    };
+      const content = response.choices[0].message.content;
+      return {
+        analysis: content ? content : "No analysis available",
+      };
+    } catch (error) {
+      const aiError = error as Error;
+      console.error('OpenAI API error:', aiError);
+      // If we hit quota limits, use the fallback
+      if (aiError.message && aiError.message.includes("quota")) {
+        console.log("API quota reached, using fallback PDF analysis");
+        return provideFallbackPdfAnalysis(pdfUrl);
+      }
+      throw aiError;
+    }
   } catch (error) {
     console.error('Error analyzing PDF:', error);
-    throw new Error(`Failed to analyze PDF: ${(error as Error).message}`);
+    try {
+      // Try fallback as last resort
+      return provideFallbackPdfAnalysis(pdfUrl);
+    } catch (fallbackError) {
+      throw new Error(`Failed to analyze PDF: ${(error as Error).message}`);
+    }
   }
+}
+
+/**
+ * Provides basic PDF analysis without AI
+ * Used when OpenAI API is unavailable or quota is reached
+ * 
+ * @param pdfUrl URL to the PDF file
+ * @returns Basic PDF analysis for app conversion
+ */
+function provideFallbackPdfAnalysis(pdfUrl: string): { analysis: string } {
+  // Extract basic info from the PDF URL
+  const pdfName = pdfUrl.split('/').pop() || "document.pdf";
+  const fileName = pdfName.replace('.pdf', '');
+  
+  return {
+    analysis: `
+PDF Analysis Report (Fallback)
+
+PDF Document: ${pdfName}
+Estimated Content Structure:
+
+1. General Structure
+   - The PDF likely contains text, images, and possibly tables or diagrams
+   - We recommend a responsive WebView layout to display the content
+   - Pages should be handled as continuous scrolling rather than page-by-page
+
+2. Conversion Strategy
+   - Convert each page to a responsive HTML format
+   - Add proper CSS for mobile display and readability
+   - Ensure images and tables are scaled correctly
+   - Add navigation controls (zoom, page jump, etc.)
+
+3. Implementation Recommendations
+   - Use a horizontally scrollable menu for chapter/section navigation
+   - Implement pinch-to-zoom for detailed content viewing
+   - Add search functionality for text content
+   - Include night mode option for better readability in dark environments
+   - Implement a progress bar showing relative position in the document
+
+4. Mobile App Integration
+   - The WebView should include proper JavaScript interfaces for app interaction
+   - Add share functionality for specific pages or sections
+   - Implement bookmarks for easy navigation to important parts
+   - Add annotation features if required
+
+Note: This is a generic analysis provided by the fallback mechanism. For a more accurate analysis, please provide a valid OpenAI API key or check your quota limits.
+`
+  };
 }
 
 /**
