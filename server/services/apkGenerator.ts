@@ -17,6 +17,9 @@ interface APKGenerationConfig {
   manifestPath: string;
   keystorePath: string;
   appConfig: AppConfig;
+  sourceType?: 'website' | 'html' | 'pdf';
+  htmlContent?: string;
+  pdfPath?: string;
 }
 
 interface APKGenerationResult {
@@ -25,6 +28,7 @@ interface APKGenerationResult {
   downloadUrl: string;
   sha1Fingerprint?: string;
   sha256Fingerprint?: string;
+  fileSize?: number | null;
 }
 
 /**
@@ -39,7 +43,10 @@ export async function generateAPK(config: APKGenerationConfig): Promise<APKGener
     iconPath,
     manifestPath,
     keystorePath,
-    appConfig
+    appConfig,
+    sourceType = 'website',
+    htmlContent,
+    pdfPath
   } = config;
 
   // Create project-specific build directory
@@ -53,7 +60,58 @@ export async function generateAPK(config: APKGenerationConfig): Promise<APKGener
     
     // Generate basic Android project structure
     const androidProjectDir = path.join(buildDir, 'android_project');
-    await createAndroidProjectStructure(androidProjectDir, appName, packageName, sourceUrl, appConfig);
+    
+    // Create assets directory for HTML and PDF content
+    const assetsDir = path.join(androidProjectDir, 'app', 'src', 'main', 'assets');
+    const wwwDir = path.join(assetsDir, 'www');
+    await fs.promises.mkdir(wwwDir, { recursive: true });
+    
+    // Process HTML content if provided
+    let effectiveSourceUrl = sourceUrl;
+    if (sourceType === 'html' && htmlContent) {
+      // Write HTML content to assets directory
+      await fs.promises.writeFile(path.join(wwwDir, 'index.html'), htmlContent);
+      
+      // Use local file URL for WebView
+      effectiveSourceUrl = 'file:///android_asset/www/index.html';
+      console.log(`HTML content saved to assets directory, using URL: ${effectiveSourceUrl}`);
+    }
+    
+    // Process PDF content if provided
+    if (sourceType === 'pdf' && pdfPath) {
+      // Create PDF viewer HTML
+      const pdfViewerHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${appName} - PDF Viewer</title>
+          <style>
+              body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+              #pdf-viewer { width: 100%; height: 100%; border: none; }
+          </style>
+      </head>
+      <body>
+          <iframe id="pdf-viewer" src="https://mozilla.github.io/pdf.js/web/viewer.html?file=document.pdf"></iframe>
+      </body>
+      </html>`;
+      
+      // Write PDF viewer to assets directory
+      await fs.promises.writeFile(path.join(wwwDir, 'pdf_viewer.html'), pdfViewerHtml);
+      
+      // Copy PDF file to assets directory
+      if (fs.existsSync(pdfPath)) {
+        await fs.promises.copyFile(pdfPath, path.join(wwwDir, 'document.pdf'));
+      }
+      
+      // Use local file URL for WebView
+      effectiveSourceUrl = 'file:///android_asset/www/pdf_viewer.html';
+      console.log(`PDF content copied to assets directory, using URL: ${effectiveSourceUrl}`);
+    }
+    
+    // Create Android project structure with the effective source URL
+    await createAndroidProjectStructure(androidProjectDir, appName, packageName, effectiveSourceUrl, appConfig);
     
     // Copy icon if provided
     if (iconPath && fs.existsSync(iconPath)) {
@@ -82,12 +140,22 @@ export async function generateAPK(config: APKGenerationConfig): Promise<APKGener
     // Create the download URL relative to the public folder
     const downloadUrl = `/downloads/${apkFilename}`;
     
+    // Get file size if possible
+    let fileSize: number | null = null;
+    try {
+      const stats = await fs.promises.stat(apkPath);
+      fileSize = stats.size;
+    } catch (err) {
+      console.error('Error getting APK file size:', err);
+    }
+    
     return {
       success: true,
       apkPath,
       downloadUrl,
       sha1Fingerprint,
-      sha256Fingerprint
+      sha256Fingerprint,
+      fileSize
     };
   } catch (error) {
     console.error('Error generating APK:', error);
