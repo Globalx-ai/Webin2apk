@@ -213,3 +213,122 @@ export const insertCouponUsageSchema = createInsertSchema(couponUsage).omit({
 
 export type InsertCouponUsage = z.infer<typeof insertCouponUsageSchema>;
 export type CouponUsage = typeof couponUsage.$inferSelect;
+
+// Analytics tables for admin dashboard
+export const analytics = pgTable("analytics", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull().default("NOW()"),
+  totalUsers: integer("total_users").notNull().default(0),
+  newUsers: integer("new_users").notNull().default(0),
+  totalProjects: integer("total_projects").notNull().default(0),
+  newProjects: integer("new_projects").notNull().default(0),
+  totalBuilds: integer("total_builds").notNull().default(0),
+  newBuilds: integer("new_builds").notNull().default(0),
+  websiteTypeProjects: integer("website_type_projects").notNull().default(0),
+  htmlTypeProjects: integer("html_type_projects").notNull().default(0),
+  pdfTypeProjects: integer("pdf_type_projects").notNull().default(0),
+  codeTypeProjects: integer("code_type_projects").notNull().default(0),
+  totalRevenue: integer("total_revenue").notNull().default(0), // in cents
+  androidBuilds: integer("android_builds").notNull().default(0),
+  iosBuilds: integer("ios_builds").notNull().default(0),
+});
+
+export const insertAnalyticsSchema = createInsertSchema(analytics).omit({
+  id: true,
+});
+
+export type InsertAnalytics = z.infer<typeof insertAnalyticsSchema>;
+export type Analytics = typeof analytics.$inferSelect;
+
+// Transaction history for admin dashboard
+export const transactions = pgTable("transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  projectId: integer("project_id").references(() => projects.id),
+  amount: integer("amount").notNull().default(0), // in cents
+  status: text("status").notNull().default("pending"),
+  paymentMethod: text("payment_method").notNull().default("stripe"),
+  paymentIntentId: text("payment_intent_id"),
+  invoiceId: text("invoice_id"),
+  receiptUrl: text("receipt_url"),
+  description: text("description"),
+  currency: text("currency").notNull().default("usd"),
+  type: text("type").notNull().default("one-time"), // one-time or subscription
+  createdAt: text("created_at").notNull().default("NOW()"),
+  metadata: jsonb("metadata"), // Additional transaction data
+});
+
+export const insertTransactionSchema = createInsertSchema(transactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+export type Transaction = typeof transactions.$inferSelect;
+
+// Build logs for admin dashboard
+export const buildLogs = pgTable("build_logs", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").references(() => projects.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  buildType: text("build_type").notNull(), // apk, aab, ipa
+  status: text("status").notNull().default("pending"), // pending, success, failed
+  startTime: text("start_time").notNull().default("NOW()"),
+  endTime: text("end_time"),
+  duration: integer("duration"), // in milliseconds
+  fileSize: integer("file_size"), // in bytes
+  buildVersion: text("build_version"),
+  buildNumber: integer("build_number"),
+  errorMessage: text("error_message"),
+  platform: text("platform").notNull().default("android"), // android, ios
+  logs: text("logs"), // Build process logs
+  metadata: jsonb("metadata"), // Additional build data
+});
+
+export const insertBuildLogSchema = createInsertSchema(buildLogs).omit({
+  id: true,
+  startTime: true,
+});
+
+export type InsertBuildLog = z.infer<typeof insertBuildLogSchema>;
+export type BuildLog = typeof buildLogs.$inferSelect;
+
+// User activity logs for admin dashboard
+export const userActivityLogs = pgTable("user_activity_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // login, project_create, build_apk, etc.
+  timestamp: text("timestamp").notNull().default("NOW()"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  details: jsonb("details"), // Additional activity details
+});
+
+export const insertUserActivityLogSchema = createInsertSchema(userActivityLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
+export type UserActivityLog = typeof userActivityLogs.$inferSelect;
+
+// System settings for admin configuration
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  settingKey: text("setting_key").notNull().unique(),
+  settingValue: text("setting_value"),
+  settingType: text("setting_type").notNull().default("text"), // text, number, boolean, json
+  category: text("category").notNull().default("general"),
+  description: text("description"),
+  isPublic: boolean("is_public").notNull().default(false), // Is this setting available to regular users?
+  lastUpdated: text("last_updated").notNull().default("NOW()"),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+export type SystemSetting = typeof systemSettings.$inferSelect;

@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
         
         webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("https://networthcalc.netlify.app/");
+        webView.loadUrl("https://networthcalc.netlify.app/login");
     }
 
     @Override

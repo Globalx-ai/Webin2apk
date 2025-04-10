@@ -45,6 +45,43 @@ export interface IStorage {
   // GitHub integration
   updateUserGithubToken(userId: number, token: string, username: string): Promise<User | undefined>;
   
+  // Analytics methods for admin dashboard
+  getAnalyticsForDate(date: string): Promise<Analytics | undefined>;
+  createAnalytics(analytics: InsertAnalytics): Promise<Analytics>;
+  updateAnalytics(id: number, analytics: Partial<Analytics>): Promise<Analytics | undefined>;
+  getAnalyticsRange(startDate: string, endDate: string): Promise<Analytics[]>;
+  
+  // Transaction methods for admin dashboard
+  getTransaction(id: number): Promise<Transaction | undefined>;
+  getTransactionsByUserId(userId: number): Promise<Transaction[]>;
+  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  updateTransaction(id: number, transaction: Partial<Transaction>): Promise<Transaction | undefined>;
+  getAllTransactions(limit?: number, offset?: number): Promise<Transaction[]>;
+  
+  // Build logs methods for admin dashboard
+  getBuildLog(id: number): Promise<BuildLog | undefined>;
+  getBuildLogsByProjectId(projectId: number): Promise<BuildLog[]>;
+  getBuildLogsByUserId(userId: number): Promise<BuildLog[]>;
+  createBuildLog(buildLog: InsertBuildLog): Promise<BuildLog>;
+  updateBuildLog(id: number, buildLog: Partial<BuildLog>): Promise<BuildLog | undefined>;
+  getAllBuildLogs(limit?: number, offset?: number): Promise<BuildLog[]>;
+  
+  // User activity logs methods for admin dashboard
+  getUserActivityLog(id: number): Promise<UserActivityLog | undefined>;
+  getUserActivityLogsByUserId(userId: number): Promise<UserActivityLog[]>;
+  createUserActivityLog(activityLog: InsertUserActivityLog): Promise<UserActivityLog>;
+  getAllUserActivityLogs(limit?: number, offset?: number): Promise<UserActivityLog[]>;
+  
+  // System settings methods for admin dashboard
+  getSystemSetting(key: string): Promise<SystemSetting | undefined>;
+  getSystemSettingsByCategory(category: string): Promise<SystemSetting[]>;
+  createSystemSetting(setting: InsertSystemSetting): Promise<SystemSetting>;
+  updateSystemSetting(id: number, setting: Partial<SystemSetting>): Promise<SystemSetting | undefined>;
+  getAllSystemSettings(): Promise<SystemSetting[]>;
+  
+  // Dashboard stats methods
+  getDashboardStats(): Promise<any>;
+  
   // Session store for auth
   sessionStore: session.Store;
 }

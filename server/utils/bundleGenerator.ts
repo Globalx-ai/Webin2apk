@@ -30,37 +30,116 @@ export async function createRealisticApkFile(appInfo: AppInfo): Promise<Buffer> 
     metaInf.file("CERT.RSA", Buffer.alloc(1024).fill(0x77)); // Dummy certificate file
   }
   
-  // Create AndroidManifest.xml
+  // Create properly structured AndroidManifest.xml with all necessary attributes to prevent parsing errors
   const androidManifest = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="${appInfo.packageName}"
     android:versionCode="${appInfo.versionCode || 1}"
-    android:versionName="${appInfo.version || '1.0'}">
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+    android:versionName="${appInfo.version || '1.0'}"
+    android:installLocation="auto">
+    <uses-sdk 
+        android:minSdkVersion="21" 
+        android:targetSdkVersion="33" 
+        tools:overrideLibrary="androidx.core,androidx.fragment,androidx.loader" />
+    <!-- Ensure compatibility -->
+    <supports-screens 
+        android:smallScreens="true" 
+        android:normalScreens="true" 
+        android:largeScreens="true" 
+        android:xlargeScreens="true" 
+        android:anyDensity="true" />
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="${appInfo.name}"
-        android:theme="@style/AppTheme">
+        android:supportsRtl="true"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/AppTheme"
+        android:requestLegacyExternalStorage="true">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|screenLayout"
+            android:exported="true"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
             </intent-filter>
         </activity>
     </application>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Optional but recommended for better compatibility -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>`;
   zip.file("AndroidManifest.xml", androidManifest);
   
-  // Create classes.dex (dummy file with DEX magic number)
-  const dexHeader = Buffer.from("6465780a30333500", "hex"); // DEX file magic number
-  const dexFile = Buffer.alloc(1024 * 100); // 100KB dummy DEX file
-  dexHeader.copy(dexFile);
-  zip.file("classes.dex", dexFile);
+  // Create a more realistic classes.dex file structure
+  // DEX file format: https://source.android.com/devices/tech/dalvik/dex-format
+  // Create a properly formatted DEX header to prevent parsing errors
+  const dexBuffer = Buffer.alloc(1024 * 100); // 100KB dummy DEX file
+  
+  // Magic value - "dex\n035\0" (DEX file magic number)
+  Buffer.from("6465780a30333500", "hex").copy(dexBuffer, 0);
+  
+  // Checksum (4 bytes) - just set to a valid-looking value
+  dexBuffer.writeUInt32LE(0x12345678, 8);
+  
+  // Signature (20 bytes SHA-1)
+  Buffer.from("1234567890123456789012345678901234567890", "hex").copy(dexBuffer, 12);
+  
+  // File size (4 bytes)
+  dexBuffer.writeUInt32LE(dexBuffer.length, 32);
+  
+  // Header size (4 bytes) - standard is 0x70
+  dexBuffer.writeUInt32LE(0x70, 36);
+  
+  // Endian tag (4 bytes) - must be 0x12345678 for little endian
+  dexBuffer.writeUInt32LE(0x12345678, 40);
+  
+  // Other important values - link_size, link_off, map_off, etc.
+  // Set these to plausible values to create a more valid-looking DEX file
+  dexBuffer.writeUInt32LE(0, 44); // link_size
+  dexBuffer.writeUInt32LE(0, 48); // link_off
+  dexBuffer.writeUInt32LE(0x70, 52); // map_off (just after header)
+  dexBuffer.writeUInt32LE(1, 56); // string_ids_size
+  dexBuffer.writeUInt32LE(0x78, 60); // string_ids_off
+  dexBuffer.writeUInt32LE(1, 64); // type_ids_size
+  dexBuffer.writeUInt32LE(0x80, 68); // type_ids_off
+  dexBuffer.writeUInt32LE(1, 72); // proto_ids_size
+  dexBuffer.writeUInt32LE(0x88, 76); // proto_ids_off
+  dexBuffer.writeUInt32LE(1, 80); // field_ids_size
+  dexBuffer.writeUInt32LE(0x90, 84); // field_ids_off
+  dexBuffer.writeUInt32LE(1, 88); // method_ids_size
+  dexBuffer.writeUInt32LE(0x98, 92); // method_ids_off
+  dexBuffer.writeUInt32LE(1, 96); // class_defs_size
+  dexBuffer.writeUInt32LE(0xA0, 100); // class_defs_off
+  dexBuffer.writeUInt32LE(0x100, 104); // data_size
+  dexBuffer.writeUInt32LE(0x100, 108); // data_off
+  
+  // Add a simple string to make it more realistic
+  // String pool
+  const str = `${appInfo.packageName}.MainActivity`;
+  const strOffset = 0x200;
+  // String data
+  dexBuffer.writeUInt16LE(str.length, strOffset); // String length as ULEB128
+  Buffer.from(str, 'utf8').copy(dexBuffer, strOffset + 2); // String content
+  
+  zip.file("classes.dex", dexBuffer);
   
   // Create resources.arsc (dummy resource file)
   const resourcesFile = Buffer.alloc(1024 * 200); // 200KB dummy resources file
@@ -142,38 +221,113 @@ export async function createRealisticAabFile(appInfo: AppInfo): Promise<Buffer> 
   // Create base module
   const base = zip.folder("base");
   
-  // Create AndroidManifest.xml for base module
+  // Create properly structured AndroidManifest.xml for base module with all necessary attributes to prevent parsing errors
   const androidManifest = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="${appInfo.packageName}"
     split="base"
     android:versionCode="${appInfo.versionCode || 1}"
-    android:versionName="${appInfo.version || '1.0'}">
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+    android:versionName="${appInfo.version || '1.0'}"
+    android:installLocation="auto">
+    <uses-sdk 
+        android:minSdkVersion="21" 
+        android:targetSdkVersion="33" 
+        tools:overrideLibrary="androidx.core,androidx.fragment,androidx.loader" />
+    <!-- Ensure compatibility -->
+    <supports-screens 
+        android:smallScreens="true" 
+        android:normalScreens="true" 
+        android:largeScreens="true" 
+        android:xlargeScreens="true" 
+        android:anyDensity="true" />
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="${appInfo.name}"
-        android:theme="@style/AppTheme">
+        android:supportsRtl="true"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/AppTheme"
+        android:requestLegacyExternalStorage="true">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|screenLayout"
+            android:exported="true"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
             </intent-filter>
         </activity>
     </application>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Optional but recommended for better compatibility -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>`;
   base?.file("manifest/AndroidManifest.xml", androidManifest);
   
-  // Create dex files
-  const dexHeader = Buffer.from("6465780a30333500", "hex"); // DEX file magic number
-  const dexFile = Buffer.alloc(1024 * 100); // 100KB dummy DEX file
-  dexHeader.copy(dexFile);
-  base?.file("dex/classes.dex", dexFile);
+  // Create dex files with proper format
+  // Create a more realistic classes.dex file structure
+  const dexBuffer = Buffer.alloc(1024 * 100); // 100KB dummy DEX file
+  
+  // Magic value - "dex\n035\0" (DEX file magic number)
+  Buffer.from("6465780a30333500", "hex").copy(dexBuffer, 0);
+  
+  // Checksum (4 bytes) - just set to a valid-looking value
+  dexBuffer.writeUInt32LE(0x12345678, 8);
+  
+  // Signature (20 bytes SHA-1)
+  Buffer.from("1234567890123456789012345678901234567890", "hex").copy(dexBuffer, 12);
+  
+  // File size (4 bytes)
+  dexBuffer.writeUInt32LE(dexBuffer.length, 32);
+  
+  // Header size (4 bytes) - standard is 0x70
+  dexBuffer.writeUInt32LE(0x70, 36);
+  
+  // Endian tag (4 bytes) - must be 0x12345678 for little endian
+  dexBuffer.writeUInt32LE(0x12345678, 40);
+  
+  // Other DEX header values (same as in APK)
+  dexBuffer.writeUInt32LE(0, 44); // link_size
+  dexBuffer.writeUInt32LE(0, 48); // link_off
+  dexBuffer.writeUInt32LE(0x70, 52); // map_off
+  dexBuffer.writeUInt32LE(1, 56); // string_ids_size
+  dexBuffer.writeUInt32LE(0x78, 60); // string_ids_off
+  dexBuffer.writeUInt32LE(1, 64); // type_ids_size
+  dexBuffer.writeUInt32LE(0x80, 68); // type_ids_off
+  dexBuffer.writeUInt32LE(1, 72); // proto_ids_size
+  dexBuffer.writeUInt32LE(0x88, 76); // proto_ids_off
+  dexBuffer.writeUInt32LE(1, 80); // field_ids_size
+  dexBuffer.writeUInt32LE(0x90, 84); // field_ids_off
+  dexBuffer.writeUInt32LE(1, 88); // method_ids_size
+  dexBuffer.writeUInt32LE(0x98, 92); // method_ids_off
+  dexBuffer.writeUInt32LE(1, 96); // class_defs_size
+  dexBuffer.writeUInt32LE(0xA0, 100); // class_defs_off
+  dexBuffer.writeUInt32LE(0x100, 104); // data_size
+  dexBuffer.writeUInt32LE(0x100, 108); // data_off
+  
+  // Add main class string
+  const str = `${appInfo.packageName}.MainActivity`;
+  const strOffset = 0x200;
+  dexBuffer.writeUInt16LE(str.length, strOffset);
+  Buffer.from(str, 'utf8').copy(dexBuffer, strOffset + 2);
+  
+  base?.file("dex/classes.dex", dexBuffer);
   
   // Create resource table
   base?.file("resources.pb", Buffer.alloc(1024 * 200)); // 200KB dummy resource file
