@@ -566,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate APK
+  // Generate APK with enhanced build service
   app.post("/api/projects/:id/build", async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.id);
