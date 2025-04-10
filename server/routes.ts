@@ -481,12 +481,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           projectId,
           appName: project.name,
           packageName: project.packageName,
-          sourceUrl: project.sourceUrl,
+          sourceUrl: project.sourceUrl, 
           iconPath: project.iconPath || undefined,
           appConfig,
-          sourceType,
-          htmlContent: project.htmlContent,
-          pdfPath: project.pdfPath
+          sourceType: sourceType as 'website' | 'html' | 'pdf' | undefined,
+          htmlContent: project.htmlContent || undefined,
+          pdfPath: project.pdfPath || undefined
         });
         console.log("Safe APK built successfully:", apkResult.apkPath);
       } catch (safeApkError) {
@@ -502,9 +502,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           manifestPath,
           keystorePath,
           appConfig,
-          sourceType,
-          htmlContent: project.htmlContent,
-          pdfPath: project.pdfPath
+          sourceType: sourceType as 'website' | 'html' | 'pdf' | undefined,
+          htmlContent: project.htmlContent || undefined,
+          pdfPath: project.pdfPath || undefined
         });
       }
       

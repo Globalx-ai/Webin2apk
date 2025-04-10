@@ -183,8 +183,52 @@ export async function generateSafeAPK(config: SafeAPKGenerationConfig): Promise<
     
     // Add an icon if available, otherwise use default
     if (iconPath && fs.existsSync(iconPath)) {
-      const iconContent = await fs.promises.readFile(iconPath);
-      drawable?.file("icon.png", iconContent);
+      try {
+        // Check if iconPath is a directory, as the project_X format might be a directory
+        const stats = await fs.promises.stat(iconPath);
+        
+        if (stats.isDirectory()) {
+          // If it's a directory, use a file from the directory
+          const iconFiles = await fs.promises.readdir(iconPath);
+          if (iconFiles.length > 0) {
+            // Use the first icon file (preferably the playstore or mdpi version)
+            const playStoreIconPath = path.join(iconPath, 'icon_playstore.png');
+            const mdpiIconPath = path.join(iconPath, 'icon_mdpi.png');
+            
+            if (fs.existsSync(playStoreIconPath)) {
+              const iconContent = await fs.promises.readFile(playStoreIconPath);
+              drawable?.file("icon.png", iconContent);
+              console.log("Using playstore icon for the APK");
+            } else if (fs.existsSync(mdpiIconPath)) {
+              const iconContent = await fs.promises.readFile(mdpiIconPath);
+              drawable?.file("icon.png", iconContent);
+              console.log("Using mdpi icon for the APK");
+            } else {
+              // Use first available icon file in directory
+              const firstIconPath = path.join(iconPath, iconFiles[0]);
+              const iconContent = await fs.promises.readFile(firstIconPath);
+              drawable?.file("icon.png", iconContent);
+              console.log(`Using icon ${iconFiles[0]} for the APK`);
+            }
+          } else {
+            throw new Error("Icon directory is empty");
+          }
+        } else {
+          // Direct file path provided
+          const iconContent = await fs.promises.readFile(iconPath);
+          drawable?.file("icon.png", iconContent);
+          console.log("Using direct icon file for the APK");
+        }
+      } catch (iconError) {
+        console.warn("Error processing icon:", iconError);
+        // Fall back to the default icon
+        drawable?.file("icon.xml", `<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" 
+    android:shape="rectangle">
+    <solid android:color="#2196F3" />
+    <corners android:radius="8dp" />
+</shape>`);
+      }
     } else {
       // Create a simple colored square as the default icon
       drawable?.file("icon.xml", `<?xml version="1.0" encoding="utf-8"?>
