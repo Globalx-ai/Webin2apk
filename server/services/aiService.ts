@@ -235,6 +235,211 @@ function performBasicCodeValidation(language: string, codeContent: string): Code
 }
 
 /**
+ * Enhanced fallback code validation that adds security and best practice checks
+ * 
+ * @param language The programming language of the code
+ * @param codeContent The code content to validate
+ * @param basicValidation The results from the basic validation as a starting point
+ * @returns Enhanced validation results with additional security and best practice checks
+ */
+function enhancedFallbackValidation(
+  language: string, 
+  codeContent: string, 
+  basicValidation: CodeVerificationResult
+): CodeVerificationResult {
+  try {
+    const result = { ...basicValidation };
+    
+    // Keep track of any issues we add
+    const additionalIssues: Array<{
+      severity: 'error' | 'warning' | 'info';
+      message: string;
+      line?: number;
+      column?: number;
+    }> = [];
+    
+    const additionalSuggestions: Array<{
+      type: 'fix' | 'improvement';
+      description: string;
+      code?: string;
+    }> = [];
+    
+    // Check for common security issues based on language
+    if (language === 'java' || language === 'kotlin') {
+      // Android-specific security checks
+      if (codeContent.includes('setJavaScriptEnabled(true)') && 
+          !codeContent.includes('setAllowFileAccess(false)')) {
+        additionalIssues.push({
+          severity: 'warning',
+          message: 'JavaScript is enabled but file access is not explicitly disabled, which could lead to security vulnerabilities.',
+        });
+        
+        additionalSuggestions.push({
+          type: 'fix',
+          description: 'Disable file access when enabling JavaScript to prevent potential security vulnerabilities.',
+          code: 'webView.getSettings().setJavaScriptEnabled(true);\nwebView.getSettings().setAllowFileAccess(false);',
+        });
+      }
+      
+      if (codeContent.includes('setAllowFileAccessFromFileURLs(true)') || 
+          codeContent.includes('setAllowUniversalAccessFromFileURLs(true)')) {
+        additionalIssues.push({
+          severity: 'error',
+          message: 'Enabling universal file access or file access from file URLs introduces significant security vulnerabilities.',
+        });
+        
+        additionalSuggestions.push({
+          type: 'fix',
+          description: 'Disable universal file access and file access from file URLs.',
+          code: 'webView.getSettings().setAllowFileAccessFromFileURLs(false);\nwebView.getSettings().setAllowUniversalAccessFromFileURLs(false);',
+        });
+      }
+      
+      // Check for common Android implementation issues
+      if (codeContent.includes('WebView') && !codeContent.includes('onReceivedSslError')) {
+        additionalIssues.push({
+          severity: 'warning',
+          message: 'SSL error handling is not implemented for WebView, which may lead to security warnings and connection issues.',
+        });
+        
+        additionalSuggestions.push({
+          type: 'improvement',
+          description: 'Implement SSL error handling for WebView. Carefully consider whether to proceed with connections that have SSL errors.',
+          code: `webView.setWebViewClient(new WebViewClient() {
+    @Override
+    public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+        // For security, default behavior is to cancel the connection
+        // Only proceed if you understand the security implications
+        handler.cancel();
+        
+        // For development only, you might want to proceed anyway
+        // handler.proceed();
+    }
+});`,
+        });
+      }
+      
+      // Check for input validation
+      if ((codeContent.includes('loadUrl(') || codeContent.includes('loadUrl (')) &&
+          !codeContent.includes('validateUrl') && 
+          !codeContent.includes('isValidUrl') && 
+          !codeContent.includes('validateInput')) {
+        additionalIssues.push({
+          severity: 'warning',
+          message: 'URL loading without validation could allow loading of malicious content.',
+        });
+        
+        additionalSuggestions.push({
+          type: 'improvement',
+          description: 'Validate URLs before loading them in the WebView.',
+          code: `private boolean isValidUrl(String url) {
+    // Basic validation - you should expand this as needed
+    return url != null && (url.startsWith("https://") || url.startsWith("http://"));
+}
+
+// Then use it before loading any URL
+if (isValidUrl(urlToLoad)) {
+    webView.loadUrl(urlToLoad);
+} else {
+    // Handle invalid URL
+    Log.e("WebView", "Attempted to load invalid URL: " + urlToLoad);
+}`,
+        });
+      }
+    } else if (language === 'javascript') {
+      // JavaScript-specific checks
+      
+      // Check for potential XSS vulnerabilities
+      if ((codeContent.includes('innerHTML') || codeContent.includes('document.write')) &&
+          !codeContent.includes('sanitize') && 
+          !codeContent.includes('DOMPurify')) {
+        additionalIssues.push({
+          severity: 'warning',
+          message: 'Using innerHTML or document.write without sanitization could expose your app to XSS attacks.',
+        });
+        
+        additionalSuggestions.push({
+          type: 'improvement',
+          description: 'Use textContent instead of innerHTML when possible, or sanitize input with a library like DOMPurify.',
+          code: `// Safer alternatives to innerHTML:
+// 1. For text-only content:
+element.textContent = content;
+
+// 2. For HTML content that needs sanitization:
+// First, add the DOMPurify library to your project
+// import DOMPurify from 'dompurify';
+element.innerHTML = DOMPurify.sanitize(content);`,
+        });
+      }
+      
+      // Check for eval usage
+      if (codeContent.includes('eval(') || codeContent.includes('new Function(')) {
+        additionalIssues.push({
+          severity: 'error',
+          message: 'Using eval() or new Function() is unsafe and opens your app to injection attacks.',
+        });
+        
+        additionalSuggestions.push({
+          type: 'fix',
+          description: 'Avoid using eval() or new Function(). Use safer alternatives such as JSON.parse() for JSON data.',
+          code: `// Instead of:
+// eval('(' + jsonString + ')')
+
+// Use:
+JSON.parse(jsonString)
+
+// For other dynamic code, consider redesigning your approach`,
+        });
+      }
+      
+      // Check for insecure communication with the native app
+      if (codeContent.includes('window.Android') || 
+          codeContent.includes('AndroidInterface') ||
+          codeContent.includes('webkit.messageHandlers')) {
+        
+        if (!codeContent.includes('try') || !codeContent.includes('catch')) {
+          additionalIssues.push({
+            severity: 'warning',
+            message: 'Native app communication without proper error handling could cause crashes.',
+          });
+          
+          additionalSuggestions.push({
+            type: 'improvement',
+            description: 'Add proper error handling when communicating with the native app.',
+            code: `try {
+  // For Android
+  if (window.AndroidInterface) {
+    window.AndroidInterface.someMethod(params);
+  }
+  // For iOS
+  else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.iOSInterface) {
+    window.webkit.messageHandlers.iOSInterface.postMessage(params);
+  }
+} catch (error) {
+  console.error('Error communicating with native app:', error);
+  // Fallback behavior or error notification to user
+}`,
+          });
+        }
+      }
+    }
+    
+    // Add our additional checks to the result
+    result.issues = [...result.issues, ...additionalIssues];
+    result.suggestions = [...result.suggestions, ...additionalSuggestions];
+    
+    // Update validity based on presence of errors
+    result.isValid = !result.issues.some(issue => issue.severity === 'error');
+    
+    return result;
+  } catch (error) {
+    console.error('Error in enhanced fallback validation:', error);
+    // Return the original basic validation if the enhanced checks fail
+    return basicValidation;
+  }
+}
+
+/**
  * Auto-completes code using AI
  * 
  * @param language Programming language
