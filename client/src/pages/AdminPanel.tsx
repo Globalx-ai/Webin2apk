@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ScatterChart, Scatter,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ComposedChart, ZAxis, Treemap
+} from "recharts";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,8 +28,19 @@ import {
 import { CouponManager } from "@/components/admin/CouponManager";
 import { SubscriptionPriceManager } from "@/components/admin/SubscriptionPriceManager";
 import { UserProfile } from "@/components/admin/UserProfile";
+import { useQuery } from "@tanstack/react-query";
 
+// Define color palettes for visualization
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
+const DASHBOARD_COLORS = {
+  primary: "#3b82f6",
+  secondary: "#10b981",
+  accent: "#f97316",
+  success: "#22c55e",
+  warning: "#eab308",
+  error: "#ef4444",
+  neutral: "#6b7280"
+};
 
 // Types for our admin data
 interface UserLoginData {
@@ -61,6 +77,38 @@ interface BuildsByDay {
   count: number;
 }
 
+interface PlatformDistribution {
+  name: string;
+  value: number;
+}
+
+interface DeviceStatistics {
+  name: string;
+  ios: number;
+  android: number;
+  total: number;
+}
+
+interface TimeSeriesData {
+  date: string;
+  users: number;
+  builds: number;
+  revenue: number;
+}
+
+interface GeoData {
+  country: string;
+  value: number;
+}
+
+interface ActivityMetric {
+  name: string;
+  value: number;
+  target: number;
+  previousPeriod: number;
+  change: number;
+}
+
 const AdminPanel = () => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -83,6 +131,11 @@ const AdminPanel = () => {
   });
   const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
   const [buildsByDay, setBuildsByDay] = useState<BuildsByDay[]>([]);
+  const [platformDistribution, setPlatformDistribution] = useState<PlatformDistribution[]>([]);
+  const [deviceStats, setDeviceStats] = useState<DeviceStatistics[]>([]);
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData[]>([]);
+  const [geoData, setGeoData] = useState<GeoData[]>([]);
+  const [activityMetrics, setActivityMetrics] = useState<ActivityMetric[]>([]);
   
   // State for user detail modal
   const [userDetailDialogOpen, setUserDetailDialogOpen] = useState(false);
@@ -198,11 +251,85 @@ const AdminPanel = () => {
           { date: "04/09", count: 15 }
         ];
 
+        // Platform distribution data
+        const simulatedPlatformDistribution: PlatformDistribution[] = [
+          { name: 'Android', value: 168 },
+          { name: 'iOS', value: 72 },
+          { name: 'Web PWA', value: 16 }
+        ];
+        
+        // Device statistics
+        const simulatedDeviceStats: DeviceStatistics[] = [
+          { name: 'Smartphones', ios: 48, android: 112, total: 160 },
+          { name: 'Tablets', ios: 24, android: 36, total: 60 },
+          { name: 'Other', ios: 0, android: 20, total: 20 }
+        ];
+        
+        // Time series data for combined metrics over time
+        const simulatedTimeSeriesData: TimeSeriesData[] = [
+          { date: '03/01', users: 65, builds: 18, revenue: 900 },
+          { date: '03/08', users: 72, builds: 22, revenue: 1100 },
+          { date: '03/15', users: 78, builds: 26, revenue: 1300 },
+          { date: '03/22', users: 85, builds: 24, revenue: 1200 },
+          { date: '03/29', users: 90, builds: 27, revenue: 1350 },
+          { date: '04/05', users: 95, builds: 30, revenue: 1500 },
+          { date: '04/09', users: 98, builds: 32, revenue: 1600 }
+        ];
+        
+        // Geographic distribution data
+        const simulatedGeoData: GeoData[] = [
+          { country: 'United States', value: 120 },
+          { country: 'United Kingdom', value: 35 },
+          { country: 'Germany', value: 28 },
+          { country: 'India', value: 22 },
+          { country: 'Australia', value: 15 },
+          { country: 'Canada', value: 14 },
+          { country: 'Japan', value: 12 },
+          { country: 'Others', value: 10 }
+        ];
+        
+        // KPI metrics with targets and changes
+        const simulatedActivityMetrics: ActivityMetric[] = [
+          { 
+            name: 'Daily Active Users', 
+            value: 78, 
+            target: 100, 
+            previousPeriod: 65, 
+            change: 20 
+          },
+          { 
+            name: 'Conversion Rate', 
+            value: 12.5, 
+            target: 15, 
+            previousPeriod: 10.2, 
+            change: 22.5 
+          },
+          { 
+            name: 'App Builds per Day', 
+            value: 15, 
+            target: 20, 
+            previousPeriod: 12, 
+            change: 25 
+          },
+          { 
+            name: 'Revenue per User', 
+            value: 4.8, 
+            target: 6, 
+            previousPeriod: 4.2, 
+            change: 14.3 
+          }
+        ];
+
         setUserLogins(simulatedUserLogins);
         setConversionStats(simulatedConversionStats);
         setUserStats(simulatedUserStats);
         setRevenueData(simulatedRevenueData);
         setBuildsByDay(simulatedBuildsByDay);
+        setPlatformDistribution(simulatedPlatformDistribution);
+        setDeviceStats(simulatedDeviceStats);
+        setTimeSeriesData(simulatedTimeSeriesData);
+        setGeoData(simulatedGeoData);
+        setActivityMetrics(simulatedActivityMetrics);
 
       } catch (error) {
         console.error("Error fetching admin data:", error);
@@ -358,6 +485,42 @@ const AdminPanel = () => {
             </Card>
           </div>
           
+          {/* KPI Metrics Section */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {activityMetrics.map((metric, index) => {
+              const percentComplete = (metric.value / metric.target) * 100;
+              const changeClass = metric.change > 0 ? 'text-green-600' : 'text-red-600';
+              const changeIcon = metric.change > 0 ? '↑' : '↓';
+              
+              return (
+                <Card key={`metric-${index}`} className="relative overflow-hidden">
+                  <CardHeader className="pb-2">
+                    <CardDescription>{metric.name}</CardDescription>
+                    <CardTitle className="text-2xl flex items-baseline">
+                      {metric.value.toFixed(1)}
+                      <span className={`ml-2 text-sm font-medium ${changeClass}`}>
+                        {changeIcon} {Math.abs(metric.change)}%
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 rounded-full" 
+                        style={{ width: `${Math.min(percentComplete, 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                      <span>{metric.value.toFixed(1)}</span>
+                      <span>Target: {metric.target}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Charts - First Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -376,7 +539,7 @@ const AdminPanel = () => {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="count" name="Builds" fill="#3b82f6" />
+                      <Bar dataKey="count" name="Builds" fill={DASHBOARD_COLORS.primary} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -418,6 +581,111 @@ const AdminPanel = () => {
                       </Pie>
                       <Tooltip />
                     </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Charts - Second Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Combined Metrics Trend</CardTitle>
+                <CardDescription>Users, builds and revenue over time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={timeSeriesData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar yAxisId="left" dataKey="builds" name="App Builds" fill={DASHBOARD_COLORS.primary} />
+                      <Line yAxisId="left" type="monotone" dataKey="users" name="Users" stroke={DASHBOARD_COLORS.accent} strokeWidth={2} />
+                      <Line yAxisId="right" type="monotone" dataKey="revenue" name="Revenue ($)" stroke={DASHBOARD_COLORS.success} strokeWidth={2} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Distribution</CardTitle>
+                <CardDescription>App build distribution by platform</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={platformDistribution}>
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="name" />
+                      <PolarRadiusAxis angle={30} domain={[0, 200]} />
+                      <Radar name="Builds" dataKey="value" stroke={DASHBOARD_COLORS.secondary} 
+                        fill={DASHBOARD_COLORS.secondary} fillOpacity={0.6} />
+                      <Legend />
+                      <Tooltip />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Charts - Third Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Device Type Distribution</CardTitle>
+                <CardDescription>Builds by device type and platform</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={deviceStats}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="android" name="Android" stackId="a" fill={DASHBOARD_COLORS.primary} />
+                      <Bar dataKey="ios" name="iOS" stackId="a" fill={DASHBOARD_COLORS.secondary} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Geographic Distribution</CardTitle>
+                <CardDescription>User distribution by country</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={geoData}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 80, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="country" type="category" width={80} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="value" name="Users" fill={DASHBOARD_COLORS.accent} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
