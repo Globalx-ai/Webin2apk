@@ -1465,6 +1465,233 @@ It requires proper Apple Developer certificate signing for installation on iOS d
       });
     }
   });
+  
+  // Admin Dashboard Routes
+  
+  // Get dashboard statistics
+  app.get("/api/admin/dashboard-stats", isAdmin, async (_req: Request, res: Response) => {
+    try {
+      const stats = await storage.getDashboardStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch dashboard statistics", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Get all users (for admin)
+  app.get("/api/admin/users", isAdmin, async (_req: Request, res: Response) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch users", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Get all transactions (for admin)
+  app.get("/api/admin/transactions", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
+      const transactions = await storage.getAllTransactions(limit, offset);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch transactions", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Get all build logs (for admin)
+  app.get("/api/admin/build-logs", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
+      const buildLogs = await storage.getAllBuildLogs(limit, offset);
+      res.json(buildLogs);
+    } catch (error) {
+      console.error("Error fetching build logs:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch build logs", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Get user activity logs (for admin)
+  app.get("/api/admin/activity-logs", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
+      const activityLogs = await storage.getAllUserActivityLogs(limit, offset);
+      res.json(activityLogs);
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch activity logs", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Get analytics date range (for admin)
+  app.get("/api/admin/analytics", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "Start date and end date are required" });
+      }
+      
+      const analytics = await storage.getAnalyticsRange(startDate as string, endDate as string);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch analytics", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Create or update analytics for a specific date (for admin)
+  app.post("/api/admin/analytics", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { date, ...analyticsData } = req.body;
+      
+      // Check if analytics for this date already exists
+      const existingAnalytics = await storage.getAnalyticsForDate(date);
+      
+      if (existingAnalytics) {
+        // Update existing analytics
+        const updatedAnalytics = await storage.updateAnalytics(existingAnalytics.id, analyticsData);
+        res.json(updatedAnalytics);
+      } else {
+        // Create new analytics
+        const newAnalytics = await storage.createAnalytics({ date, ...analyticsData });
+        res.status(201).json(newAnalytics);
+      }
+    } catch (error) {
+      console.error("Error creating/updating analytics:", error);
+      res.status(500).json({ 
+        error: "Failed to create/update analytics", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Get all system settings (for admin)
+  app.get("/api/admin/settings", isAdmin, async (_req: Request, res: Response) => {
+    try {
+      const settings = await storage.getAllSystemSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching system settings:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch system settings", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Get system settings by category (for admin)
+  app.get("/api/admin/settings/:category", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { category } = req.params;
+      const settings = await storage.getSystemSettingsByCategory(category);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching system settings by category:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch system settings", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Update system setting (for admin)
+  app.patch("/api/admin/settings/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const settingId = parseInt(id);
+      
+      if (isNaN(settingId)) {
+        return res.status(400).json({ error: "Invalid setting ID" });
+      }
+      
+      const { settingValue } = req.body;
+      
+      if (settingValue === undefined) {
+        return res.status(400).json({ error: "Setting value is required" });
+      }
+      
+      const updatedSetting = await storage.updateSystemSetting(settingId, { 
+        settingValue,
+        updatedBy: req.user.id
+      });
+      
+      if (!updatedSetting) {
+        return res.status(404).json({ error: "Setting not found" });
+      }
+      
+      res.json(updatedSetting);
+    } catch (error) {
+      console.error("Error updating system setting:", error);
+      res.status(500).json({ 
+        error: "Failed to update system setting", 
+        message: (error as Error).message 
+      });
+    }
+  });
+  
+  // Create new system setting (for admin)
+  app.post("/api/admin/settings", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { settingKey, settingValue, settingType, category, description, isPublic } = req.body;
+      
+      if (!settingKey || !settingType || !category) {
+        return res.status(400).json({ error: "Setting key, type, and category are required" });
+      }
+      
+      // Check if setting with this key already exists
+      const existingSetting = await storage.getSystemSetting(settingKey);
+      
+      if (existingSetting) {
+        return res.status(409).json({ error: "Setting with this key already exists" });
+      }
+      
+      const newSetting = await storage.createSystemSetting({
+        settingKey,
+        settingValue: settingValue || null,
+        settingType,
+        category,
+        description: description || null,
+        isPublic: isPublic || false,
+        updatedBy: req.user.id
+      });
+      
+      res.status(201).json(newSetting);
+    } catch (error) {
+      console.error("Error creating system setting:", error);
+      res.status(500).json({ 
+        error: "Failed to create system setting", 
+        message: (error as Error).message 
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
