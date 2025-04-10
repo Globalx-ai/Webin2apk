@@ -606,97 +606,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateBuildLog(buildLog.id, { logs });
       };
       
-      await updateBuildProgress('started', 'Starting build process...');
+      await updateBuildProgress('started', 'Starting enhanced build process with validation and retry...');
       
-      // Step 1: Generate Android manifest
-      await updateBuildProgress('manifest', 'Generating app manifest...');
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Give UI time to update
+      // Import and initialize the enhanced build service
+      const { EnhancedBuildService } = await import('./services/enhancedBuildService');
+      const buildService = new EnhancedBuildService();
       
-      const manifestPath = await generateAndroidManifest({
+      // Prepare build configuration
+      const buildConfig = {
         appName: project.name,
         packageName: project.packageName,
-        url: project.sourceUrl || 'about:blank', // Provide default URL if not available
-        orientation: appConfig.orientation,
-        permissions: appConfig.permissions || ["INTERNET"],
-      });
+        url: project.sourceUrl,
+        orientation: appConfig.orientation || 'portrait',
+        permissions: appConfig.permissions || ['INTERNET'],
+        enableJavaScript: appConfig.enableJavaScript,
+        enableZoom: appConfig.enableZoom,
+        iconPath: project.iconPath,
+        sourceType: sourceType as 'website' | 'html' | 'pdf',
+        htmlContent: project.htmlContent,
+        pdfPath: project.pdfPath
+      };
       
-      // Step 2: Process icons
-      await updateBuildProgress('icons', 'Processing app icons...');
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Give UI time to update
-      
-      // Step 3: Generate keystore if not exists
-      await updateBuildProgress('keystore', 'Creating signing keys...');
-      await new Promise(resolve => setTimeout(resolve, 1200)); // Give UI time to update
-      
-      const keystorePath = await generateKeystore(project.packageName);
-      
-      // Step 4: Package WebView
-      await updateBuildProgress('webview', 'Packaging WebView for Android...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Give UI time to update
-      
-      // Special handling for HTML content
-      if (sourceType === 'html' && project.htmlContent) {
-        // Create a temporary HTML file for bundling
-        const htmlPath = path.join(process.cwd(), 'builds', `project_${projectId}`, 'source.html');
-        await fs.promises.mkdir(path.dirname(htmlPath), { recursive: true });
-        await fs.promises.writeFile(htmlPath, project.htmlContent, 'utf8');
-        
-        // Use a file:// URL in the bundle instead of HTTP URL
-        project.sourceUrl = `file:///android_asset/www/index.html`;
-        
-        await updateBuildProgress('html', 'Processing HTML content for app bundle...');
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Give UI time to update
+      // Check if we have a cached build result first
+      await updateBuildProgress('cache_check', 'Checking build cache...');
+      if (buildService.hasCachedBuild(projectId, buildConfig)) {
+        await updateBuildProgress('cache_hit', 'Found cached build result from previous successful build');
+        const cachedResult = buildService.getCachedBuild(projectId, buildConfig);
+        if (cachedResult && cachedResult.success) {
+          await updateBuildProgress('using_cache', 'Using cached build to improve performance');
+          apkResult = cachedResult;
+          
+          // Track that we used a cached build
+          await storage.updateBuildLog(buildLog.id, { 
+            logs: buildLog.logs ? buildLog.logs + '\nUsed cached build' : 'Used cached build',
+            metadata: { cached: true }
+          });
+          
+          console.log("Using cached APK from previous successful build");
+        } else {
+          await updateBuildProgress('cache_invalid', 'Cached build was invalid or expired, generating fresh build');
+        }
       }
       
-      // Special handling for PDF content
-      if (sourceType === 'pdf' && project.pdfPath) {
-        // Set up PDF viewer in the WebView
-        project.sourceUrl = `file:///android_asset/www/pdf_viewer.html?pdf=document.pdf`;
+      // Proceed with build if no valid cache was found
+      if (!apkResult) {
+        // Validate the build configuration
+        await updateBuildProgress('validation', 'Validating build configuration...');
+        const validation = await buildService.validateBuild(buildConfig);
         
-        await updateBuildProgress('pdf', 'Processing PDF document for app bundle...');
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Give UI time to update
-      }
-      
-      // Step 5: Finalize APK
-      await updateBuildProgress('finalizing', 'Finalizing Android APK...');
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Give UI time to update
-      
-      // Try to build a safer APK first to avoid antivirus issues
-      console.log("Building APK for", project.packageName, "using SafeApkGenerator...");
-      let apkResult;
-      
-      try {
-        // Import safeApkGenerator to create a cleaner APK that won't trigger antivirus
-        const { generateSafeAPK } = await import('./services/safeApkGenerator');
-        apkResult = await generateSafeAPK({
-          projectId,
+        if (!validation.isValid) {
+          await updateBuildProgress('validation_failed', `Validation failed: ${validation.errors.join(', ')}`);
+          await storage.updateProject(projectId, { status: "failed" });
+          await storage.updateBuildLog(buildLog.id, { 
+            status: 'failed',
+            endTime: new Date().toISOString()
+          });
+          
+          return res.status(400).json({ 
+            error: "Build validation failed", 
+            details: validation.errors
+          });
+        }
+        
+        await updateBuildProgress('building', 'Building APK with retry logic...');
+        
+        // Start traditional build process with retry logic through EnhancedBuildService
+        // Step 1: Generate Android manifest
+        await updateBuildProgress('manifest', 'Generating app manifest...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Give UI time to update
+        
+        const manifestPath = await generateAndroidManifest({
           appName: project.name,
           packageName: project.packageName,
-          sourceUrl: project.sourceUrl, 
-          iconPath: project.iconPath || undefined,
-          appConfig,
-          sourceType: sourceType as 'website' | 'html' | 'pdf' | undefined,
-          htmlContent: project.htmlContent || undefined,
-          pdfPath: project.pdfPath || undefined
+          url: project.sourceUrl || 'about:blank',
+          orientation: appConfig.orientation,
+          permissions: appConfig.permissions || ["INTERNET"],
         });
-        console.log("Safe APK built successfully:", apkResult.apkPath);
-      } catch (safeApkError) {
-        console.warn("SafeApkGenerator failed, falling back to standard APK generator:", safeApkError);
         
-        // Fall back to the standard APK generator if safe version fails
-        apkResult = await generateAPK({
-          projectId,
-          appName: project.name,
-          packageName: project.packageName,
-          sourceUrl: project.sourceUrl || "",
-          iconPath: project.iconPath || undefined,
-          manifestPath,
-          keystorePath,
-          appConfig,
-          sourceType: sourceType as 'website' | 'html' | 'pdf' | undefined,
-          htmlContent: project.htmlContent || undefined,
-          pdfPath: project.pdfPath || undefined
-        });
+        // Step 2: Process icons
+        await updateBuildProgress('icons', 'Processing app icons...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Give UI time to update
+        
+        // Step 3: Generate keystore
+        await updateBuildProgress('keystore', 'Creating signing keys...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Give UI time to update
+        
+        const keystorePath = await generateKeystore(project.packageName);
+        
+        // Process HTML and PDF content if necessary
+        if (sourceType === 'html' && project.htmlContent) {
+          // Create a temporary HTML file for bundling
+          const htmlPath = path.join(process.cwd(), 'builds', `project_${projectId}`, 'source.html');
+          await fs.promises.mkdir(path.dirname(htmlPath), { recursive: true });
+          await fs.promises.writeFile(htmlPath, project.htmlContent, 'utf8');
+          
+          // Use a file:// URL in the bundle instead of HTTP URL
+          project.sourceUrl = `file:///android_asset/www/index.html`;
+          
+          await updateBuildProgress('html', 'Processing HTML content for app bundle...');
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Give UI time to update
+        }
+        
+        if (sourceType === 'pdf' && project.pdfPath) {
+          // Set up PDF viewer in the WebView
+          project.sourceUrl = `file:///android_asset/www/pdf_viewer.html?pdf=document.pdf`;
+          
+          await updateBuildProgress('pdf', 'Processing PDF document for app bundle...');
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Give UI time to update
+        }
+        
+        // Use retry logic for the actual APK generation
+        await updateBuildProgress('apk_generation', 'Generating APK with retry logic...');
+        
+        let apkGenerationResult;
+        try {
+          // Execute the APK generation with retry logic
+          apkGenerationResult = await buildService.executeWithRetry(
+            async () => {
+              // Import safeApkGenerator to create a cleaner APK that won't trigger antivirus
+              await updateBuildProgress('generation_attempt', 'Generating APK...');
+              
+              const { generateSafeAPK } = await import('./services/safeApkGenerator');
+              const result = await generateSafeAPK({
+                projectId,
+                appName: project.name,
+                packageName: project.packageName,
+                sourceUrl: project.sourceUrl, 
+                iconPath: project.iconPath || undefined,
+                manifestPath,
+                keystorePath,
+                appConfig,
+                sourceType: sourceType as 'website' | 'html' | 'pdf' | undefined,
+                htmlContent: project.htmlContent || undefined,
+                pdfPath: project.pdfPath || undefined
+              });
+              
+              if (!result.success) {
+                throw new Error(result.error || 'APK generation failed');
+              }
+              
+              return result;
+            },
+            (attempt, error) => {
+              // Log retry attempts
+              updateBuildProgress('retry', `Build attempt ${attempt} failed: ${error.message}. Retrying...`);
+            }
+          );
+          
+          // Success! Use the APK result
+          apkResult = apkGenerationResult;
+          
+          // Cache the result for future builds
+          const buildTimeMs = Date.now() - new Date(buildLog.startTime).getTime();
+          const buildResultForCache = {
+            success: true,
+            apkPath: apkResult.apkPath,
+            downloadUrl: apkResult.downloadUrl,
+            fileSize: apkResult.fileSize,
+            buildTime: buildTimeMs,
+            buildId: `build_${projectId}_${Date.now()}`
+          };
+          buildService.cacheBuildResult(projectId, buildConfig, buildResultForCache);
+          
+          await updateBuildProgress('success', 'APK built successfully and cached for future builds');
+          
+        } catch (buildError) {
+          // If enhanced build fails, try the fallback approach
+          await updateBuildProgress('enhanced_build_failed', `Enhanced build failed: ${buildError.message}. Trying fallback approach...`);
+          
+          // Fall back to the standard APK generator
+          apkResult = await generateAPK({
+            projectId,
+            appName: project.name,
+            packageName: project.packageName,
+            sourceUrl: project.sourceUrl || "",
+            iconPath: project.iconPath || undefined,
+            manifestPath,
+            keystorePath,
+            appConfig,
+            sourceType: sourceType as 'website' | 'html' | 'pdf' | undefined,
+            htmlContent: project.htmlContent || undefined,
+            pdfPath: project.pdfPath || undefined
+          });
+        }
       }
       
       // Update build log to completed
@@ -805,17 +897,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const iconPath = project.iconPath ?? undefined;
         
         try {
-          // Generate the APK
-          const apkResult = await generateAPK({
-            projectId,
+          // Use enhanced build service with retry logic for on-demand builds
+          const { EnhancedBuildService } = await import('./services/enhancedBuildService');
+          const buildService = new EnhancedBuildService();
+          
+          // Prepare build configuration
+          const buildConfig = {
             appName: project.name,
             packageName: project.packageName,
-            sourceUrl: project.sourceUrl || undefined,
-            iconPath,
-            manifestPath,
-            keystorePath,
-            appConfig
-          });
+            url: project.sourceUrl,
+            orientation: appConfig.orientation || 'portrait',
+            permissions: appConfig.permissions || ['INTERNET'],
+            enableJavaScript: appConfig.enableJavaScript || true,
+            enableZoom: appConfig.enableZoom || true,
+            iconPath: iconPath
+          };
+          
+          // Check if we have a cached build first
+          if (buildService.hasCachedBuild(projectId, buildConfig)) {
+            console.log('Using cached build for download');
+            const cachedResult = buildService.getCachedBuild(projectId, buildConfig);
+            if (cachedResult && cachedResult.success) {
+              return cachedResult;
+            }
+          }
+          
+          // Execute with retry if no cache is available
+          const apkResult = await buildService.executeWithRetry(
+            async () => {
+              return await generateAPK({
+                projectId,
+                appName: project.name,
+                packageName: project.packageName,
+                sourceUrl: project.sourceUrl || undefined,
+                iconPath,
+                manifestPath,
+                keystorePath,
+                appConfig
+              });
+            },
+            (attempt, error) => {
+              console.log(`On-demand build attempt ${attempt} failed: ${error.message}`);
+            }
+          );
           
           if (apkResult.success) {
             // Update project with download URL
