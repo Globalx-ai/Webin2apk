@@ -30,7 +30,7 @@ export class RetryManager {
     operation: () => Promise<T>,
     onRetry?: (attempt: number, error: Error) => void
   ): Promise<T> {
-    let lastError: Error;
+    let lastError: Error = new Error('Unknown error');
     
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
@@ -50,7 +50,7 @@ export class RetryManager {
     }
     
     // If we get here, all retry attempts failed
-    throw new Error(`Operation failed after ${this.maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(`Operation failed after ${this.maxRetries} attempts: ${lastError.message}`);
   }
   
   /**

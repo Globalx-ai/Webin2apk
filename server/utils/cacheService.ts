@@ -10,7 +10,7 @@ export interface CacheItem<T> {
 }
 
 export class BuildCacheService {
-  private cache: Map<string, CacheItem<any>>;
+  private cache = new Map<string, CacheItem<any>>();
   private static instance: BuildCacheService;
   
   /**
@@ -21,7 +21,6 @@ export class BuildCacheService {
       return BuildCacheService.instance;
     }
     
-    this.cache = new Map();
     BuildCacheService.instance = this;
   }
 

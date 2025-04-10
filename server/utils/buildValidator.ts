@@ -3,10 +3,21 @@
  * before starting the build process.
  */
 
+import axios from 'axios';
+import { URL } from 'url';
+
 export interface BuildConfig {
-  url?: string;
   appName: string;
   packageName: string;
+  url?: string;
+  orientation?: string;
+  permissions?: string[];
+  sourceType?: 'website' | 'html' | 'pdf';
+  iconPath?: string;
+  htmlContent?: string;
+  pdfPath?: string;
+  enableJavaScript?: boolean;
+  enableZoom?: boolean;
   [key: string]: any;
 }
 
@@ -25,21 +36,39 @@ export interface BuildValidation {
 export const validateBuildConfig = (config: BuildConfig): BuildValidation => {
   const errors: string[] = [];
   
-  // Website URL validation - only if it's provided
-  if (config.url && !config.url.match(/^https?:\/\/.+/)) {
-    errors.push('Invalid website URL format');
+  // Check required fields
+  if (!config.appName) {
+    errors.push('App name is required');
+  } else if (config.appName.length < 3) {
+    errors.push('App name must be at least 3 characters long');
+  } else if (config.appName.length > 30) {
+    errors.push('App name must be less than 30 characters long');
   }
-
-  // App name validation
-  if (!config.appName || config.appName.length < 3) {
-    errors.push('App name must be at least 3 characters');
+  
+  if (!config.packageName) {
+    errors.push('Package name is required');
+  } else {
+    // Validate package name format (e.g., com.example.app)
+    const packageNameRegex = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/i;
+    if (!packageNameRegex.test(config.packageName)) {
+      errors.push('Package name must be in the format "com.example.app"');
+    }
   }
-
-  // Package name validation
-  if (!config.packageName.match(/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+[0-9a-z_]$/)) {
-    errors.push('Invalid package name format');
+  
+  // Validate URL format for website type
+  if (config.sourceType === 'website' && config.url) {
+    try {
+      new URL(config.url);
+    } catch (error) {
+      errors.push('Invalid URL format');
+    }
   }
-
+  
+  // Validate orientation if provided
+  if (config.orientation && !['portrait', 'landscape', 'auto'].includes(config.orientation)) {
+    errors.push('Orientation must be "portrait", "landscape", or "auto"');
+  }
+  
   return {
     isValid: errors.length === 0,
     errors
@@ -53,25 +82,31 @@ export const validateBuildConfig = (config: BuildConfig): BuildValidation => {
 export const validateBuildResources = async (config: BuildConfig): Promise<BuildValidation> => {
   const errors: string[] = [];
   
-  // Check if website URL is reachable
-  if (config.url) {
+  // Only check URL accessibility if it's a website source type
+  if (config.sourceType === 'website' && config.url) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(config.url, { 
-        method: "HEAD",
-        signal: controller.signal
+      // Use a HEAD request to check if the URL is reachable
+      await axios.head(config.url, { 
+        timeout: 5000,
+        validateStatus: (status: number) => status < 500 // Accept any status < 500 as valid
       });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        errors.push(`Website URL returned status ${response.status}`);
-      }
     } catch (error) {
-      errors.push('Website URL is not reachable');
+      errors.push(`Website URL is not accessible: ${config.url}`);
     }
+  }
+  
+  // For HTML content, validate that it has basic HTML structure
+  if (config.sourceType === 'html' && config.htmlContent) {
+    const htmlContent = config.htmlContent.toLowerCase();
+    if (!htmlContent.includes('<html') || !htmlContent.includes('</html>')) {
+      errors.push('HTML content is missing proper HTML structure');
+    }
+  }
+  
+  // For PDF content, validate that PDF path exists
+  if (config.sourceType === 'pdf' && config.pdfPath) {
+    // This would normally check if the file exists, but we'll skip for now
+    // as file system access depends on the environment
   }
   
   return {
