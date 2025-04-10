@@ -468,22 +468,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Step 5: Finalize APK
       await updateBuildProgress('finalizing', 'Finalizing Android APK...');
-      await new Promise(resolve => setTimeout(resolve, 2500)); // Give UI time to update
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Give UI time to update
       
-      // Build APK
-      const apkResult = await generateAPK({
-        projectId,
-        appName: project.name,
-        packageName: project.packageName,
-        sourceUrl: project.sourceUrl || "",
-        iconPath: project.iconPath || undefined,
-        manifestPath,
-        keystorePath,
-        appConfig,
-        sourceType,
-        htmlContent: project.htmlContent,
-        pdfPath: project.pdfPath
-      });
+      // Try to build a safer APK first to avoid antivirus issues
+      console.log("Building APK for", project.packageName, "using SafeApkGenerator...");
+      let apkResult;
+      
+      try {
+        // Import safeApkGenerator to create a cleaner APK that won't trigger antivirus
+        const { generateSafeAPK } = await import('./services/safeApkGenerator');
+        apkResult = await generateSafeAPK({
+          projectId,
+          appName: project.name,
+          packageName: project.packageName,
+          sourceUrl: project.sourceUrl,
+          iconPath: project.iconPath || undefined,
+          appConfig,
+          sourceType,
+          htmlContent: project.htmlContent,
+          pdfPath: project.pdfPath
+        });
+        console.log("Safe APK built successfully:", apkResult.apkPath);
+      } catch (safeApkError) {
+        console.warn("SafeApkGenerator failed, falling back to standard APK generator:", safeApkError);
+        
+        // Fall back to the standard APK generator if safe version fails
+        apkResult = await generateAPK({
+          projectId,
+          appName: project.name,
+          packageName: project.packageName,
+          sourceUrl: project.sourceUrl || "",
+          iconPath: project.iconPath || undefined,
+          manifestPath,
+          keystorePath,
+          appConfig,
+          sourceType,
+          htmlContent: project.htmlContent,
+          pdfPath: project.pdfPath
+        });
+      }
       
       // Update build log to completed
       await storage.updateBuildLog(buildLog.id, { 

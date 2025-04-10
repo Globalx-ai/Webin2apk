@@ -32,10 +32,9 @@ interface AppInfo {
  */
 export async function createRealisticApkFile(appInfo: AppInfo): Promise<Buffer> {
   console.log(`Starting APK generation for ${appInfo.name} (${appInfo.packageName})...`);
-  // Add artificial delay to give impression of complex processing
-  await delay(3000);
+  // We'll build a clean, standards-compliant APK structure that won't trigger antivirus
   
-  // Create a new JSZip instance
+  // Use a minimal file structure for a WebView-only app - this reduces false positives
   const zip = new JSZip();
   
   // Create proper Java code structure (essential for a valid APK)
