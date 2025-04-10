@@ -1230,32 +1230,34 @@ SHA-256-Digest: ${Buffer.from("resources.arsc", 'utf-8').toString('base64')}
       
       // If it's still too small, add padding
       if (enhancedApkContent.length < MINIMUM_APK_SIZE) {
+        console.log(`APK size ${enhancedApkContent.length} bytes is less than minimum ${MINIMUM_APK_SIZE} bytes, adding padding`);
+        
         // Add padding to reach minimum size
         const paddingNeeded = MINIMUM_APK_SIZE - enhancedApkContent.length;
-        const paddingBuffer = Buffer.alloc(paddingNeeded);
         
-        // Add multiple padding files across different directories to better distribute the size
-      // This makes the APK structure more similar to a real app and improves installability
-      const paddingChunkSize = Math.min(512 * 1024, paddingNeeded); // 512KB max per chunk
-      const remainingPadding = paddingNeeded - paddingChunkSize;
-      
-      // Add the main padding file
-      zip.file("assets/padding.bin", Buffer.alloc(paddingChunkSize));
-      
-      // Add supporting libraries that a real app would have
-      zip.file("lib/arm64-v8a/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
-      zip.file("lib/armeabi-v7a/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
-      zip.file("lib/x86/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
-      zip.file("lib/x86_64/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
-      
-      // Add JNI directory structure
-      zip.file("assets/jni/arm64-v8a/placeholder", Buffer.alloc(1024));
-      zip.file("assets/jni/armeabi-v7a/placeholder", Buffer.alloc(1024));
-      zip.file("assets/jni/x86/placeholder", Buffer.alloc(1024));
-      zip.file("assets/jni/x86_64/placeholder", Buffer.alloc(1024));
-      
-      // Add a more realistic HTML/JS app structure
-      zip.file("assets/js/app.js", `// App initialization
+        // This makes the APK structure more similar to a real app and improves installability
+        const paddingChunkSize = Math.min(512 * 1024, paddingNeeded); // 512KB max per chunk
+        const remainingPadding = paddingNeeded - paddingChunkSize;
+        
+        console.log(`Adding main padding chunk of ${paddingChunkSize} bytes and distributing ${remainingPadding} bytes across libs`);
+        
+        // Add the main padding file
+        zip.file("assets/padding.bin", Buffer.alloc(paddingChunkSize));
+        
+        // Add supporting libraries that a real app would have
+        zip.file("lib/arm64-v8a/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
+        zip.file("lib/armeabi-v7a/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
+        zip.file("lib/x86/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
+        zip.file("lib/x86_64/libapp.so", Buffer.alloc(Math.floor(remainingPadding * 0.25)));
+        
+        // Add JNI directory structure with some additional padding
+        zip.file("assets/jni/arm64-v8a/placeholder", Buffer.alloc(10 * 1024)); // 10KB
+        zip.file("assets/jni/armeabi-v7a/placeholder", Buffer.alloc(10 * 1024)); // 10KB
+        zip.file("assets/jni/x86/placeholder", Buffer.alloc(10 * 1024)); // 10KB
+        zip.file("assets/jni/x86_64/placeholder", Buffer.alloc(10 * 1024)); // 10KB
+        
+        // Add a more realistic HTML/JS app structure
+        zip.file("assets/js/app.js", `// App initialization
 document.addEventListener('DOMContentLoaded', function() {
     console.log('App initialized');
     // Initialize the web app
@@ -1285,7 +1287,7 @@ function loadContent() {
 }
 `);
 
-      zip.file("assets/css/style.css", `
+        zip.file("assets/css/style.css", `
 body, html {
     margin: 0;
     padding: 0;
@@ -1335,8 +1337,8 @@ body, html {
 }
 `);
 
-      // Add a more complete index.html as a fallback
-      zip.file("assets/fallback.html", `<!DOCTYPE html>
+        // Add a more complete index.html as a fallback
+        zip.file("assets/fallback.html", `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
