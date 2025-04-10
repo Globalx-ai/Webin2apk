@@ -188,13 +188,28 @@ export async function createRealisticApkFile(appInfo: AppInfo): Promise<Buffer> 
   const resourcesFile = Buffer.alloc(1024 * 200); // 200KB dummy resources file
   zip.file("resources.arsc", resourcesFile);
   
-  // Create res folder with some resource files
+  // Create res folder with resource files - ensuring proper structure
   const res = zip.folder("res");
   const drawable = res?.folder("drawable");
   drawable?.file("background.xml", `<?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <solid android:color="#FFFFFF" />
 </shape>`);
+  
+  // Add values folder with styles.xml (critical for proper APK parsing)
+  const values = res?.folder("values");
+  values?.file("styles.xml", `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="android:Theme.Material.Light.DarkActionBar">
+        <item name="android:colorPrimary">#2196F3</item>
+        <item name="android:colorPrimaryDark">#1976D2</item>
+        <item name="android:colorAccent">#448AFF</item>
+    </style>
+    <style name="AppTheme.NoActionBar">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>`);
   
   const layout = res?.folder("layout");
   layout?.file("activity_main.xml", `<?xml version="1.0" encoding="utf-8"?>
@@ -213,9 +228,108 @@ export async function createRealisticApkFile(appInfo: AppInfo): Promise<Buffer> 
   const iconContent = Buffer.alloc(1024 * 5); // 5KB dummy icon
   mipmap?.file("ic_launcher.png", iconContent);
   
-  // Add asset files
+  // Add asset files with proper WebView configuration for both online and offline modes
   const assets = zip.folder("assets");
-  assets?.file("index.html", `<!DOCTYPE html>
+  
+  // If there's a source URL, create a more robust webview HTML file that can handle connectivity issues
+  if (appInfo.sourceUrl) {
+    assets?.file("index.html", `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>${appInfo.name}</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; }
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #f5f5f5; z-index: 1000; }
+        #loader .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        #error-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #fff; z-index: 2000; padding: 20px; box-sizing: border-box; }
+        #retry-btn { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 20px 0; cursor: pointer; border-radius: 4px; }
+        #webview-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; }
+        iframe { border: 0; width: 100%; height: 100%; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="loader">
+        <div class="spinner"></div>
+        <p>Loading ${appInfo.name}...</p>
+    </div>
+    
+    <div id="error-container">
+        <h2>Connection Error</h2>
+        <p>Unable to load the application. Please check your internet connection and try again.</p>
+        <button id="retry-btn" onclick="retryLoading()">Retry</button>
+    </div>
+    
+    <div id="webview-container">
+        <iframe id="web-frame" src="about:blank"></iframe>
+    </div>
+
+    <script>
+        // Target URL - default to the one from appInfo or use a placeholder
+        const TARGET_URL = "${appInfo.sourceUrl}";
+        
+        let loadAttempts = 0;
+        const MAX_ATTEMPTS = 3;
+        const frame = document.getElementById('web-frame');
+        const loader = document.getElementById('loader');
+        const errorContainer = document.getElementById('error-container');
+        
+        // Function to load the website
+        function loadWebsite() {
+            loadAttempts++;
+            errorContainer.style.display = 'none';
+            loader.style.display = 'flex';
+            
+            try {
+                // Set iframe src to the target URL
+                frame.src = TARGET_URL;
+                
+                // Add load event listener to hide loader when content is loaded
+                frame.onload = function() {
+                    loader.style.display = 'none';
+                };
+                
+                // Add error event listener to show error message
+                frame.onerror = handleLoadError;
+            } catch (error) {
+                handleLoadError(error);
+            }
+            
+            // Set a timeout in case the load event never fires
+            setTimeout(function() {
+                if (loader.style.display !== 'none') {
+                    handleLoadError(new Error('Loading timed out'));
+                }
+            }, 30000);
+        }
+        
+        // Function to handle loading errors
+        function handleLoadError(error) {
+            console.error('Error loading website:', error);
+            if (loadAttempts < MAX_ATTEMPTS) {
+                setTimeout(loadWebsite, 2000);
+            } else {
+                loader.style.display = 'none';
+                errorContainer.style.display = 'block';
+            }
+        }
+        
+        // Function to retry loading
+        function retryLoading() {
+            loadAttempts = 0;
+            loadWebsite();
+        }
+        
+        // Start loading the website
+        window.addEventListener('DOMContentLoaded', loadWebsite);
+    </script>
+</body>
+</html>`);
+  } else {
+    // Default static content for when no source URL is provided
+    assets?.file("index.html", `<!DOCTYPE html>
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -230,6 +344,7 @@ export async function createRealisticApkFile(appInfo: AppInfo): Promise<Buffer> 
     <p>This is a WebView-based application generated by Webin2Apk.</p>
 </body>
 </html>`);
+  }
   
   // Create lib folder with dummy native libraries for different architectures
   const lib = zip.folder("lib");
