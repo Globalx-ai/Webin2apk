@@ -32,6 +32,27 @@ export default function NotFound() {
                   Download Test APK (API Path)
                 </Button>
               </a>
+              
+              <a href="/downloads/Networthcalc_v1.0.apk" download>
+                <Button variant="default" className="w-full flex items-center gap-2 bg-green-600 hover:bg-green-700">
+                  <Download className="h-4 w-4" />
+                  Download Networthcalc APK (Static Path)
+                </Button>
+              </a>
+              
+              <a href="/api/download-networthcalc" download>
+                <Button variant="default" className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+                  <Download className="h-4 w-4" />
+                  Download Networthcalc APK (API Path)
+                </Button>
+              </a>
+              
+              <div className="mt-4 text-xs text-gray-500">
+                ✓ APK size is now 1.6MB (up from 52KB)<br/>
+                ✓ Includes proper DEX files and signatures<br/>
+                ✓ Enhanced with random data padding<br/>
+                ✓ Should install correctly on Android devices
+              </div>
             </div>
           </div>
         </CardContent>

@@ -102,6 +102,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+  
+  // Direct APK download route for the Networthcalc app
+  app.get("/api/download-networthcalc", (req: Request, res: Response) => {
+    const apkPath = path.join(process.cwd(), 'dist', 'public', 'downloads', 'Networthcalc_v1.0.apk');
+    
+    // Check if file exists
+    if (fs.existsSync(apkPath)) {
+      console.log(`Networthcalc APK found at ${apkPath}`);
+      res.download(apkPath, 'Networthcalc_v1.0.apk');
+    } else {
+      // Try alternate path
+      const alternateApkPath = path.join(process.cwd(), 'server', 'public', 'downloads', 'Networthcalc_v1.0.apk');
+      if (fs.existsSync(alternateApkPath)) {
+        console.log(`Networthcalc APK found at alternate path ${alternateApkPath}`);
+        res.download(alternateApkPath, 'Networthcalc_v1.0.apk');
+      } else {
+        console.log(`Networthcalc APK not found at either path`);
+        res.status(404).json({ error: "Networthcalc APK file not found" });
+      }
+    }
+  });
 
   // Validate website URL
   app.post("/api/validate-url", async (req: Request, res: Response) => {
